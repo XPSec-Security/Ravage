@@ -1,0 +1,15 @@
+# Byte-compiled
+__pycache__/
+
+# Database file
+*.db
+
+# Profile configuration
+profiles/*.yaml
+
+# Certificates
+certs/*.key
+certs/*.crt
+
+#Github dir
+.github/*

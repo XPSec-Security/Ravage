@@ -1,0 +1,306 @@
+.background-gradient {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #dc2626 50%, #1e293b 75%, #0f172a 100%);
+    background-size: 400% 400%;
+    animation: gradientShift 15s ease infinite;
+}
+
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    25% { background-position: 100% 50%; }
+    50% { background-position: 100% 100%; }
+    75% { background-position: 0% 100%; }
+    100% { background-position: 0% 50%; }
+}
+
+.floating-window {
+    backdrop-filter: blur(15px);
+    background: rgba(17, 24, 39, 0.95);
+    border: 1px solid rgba(220, 38, 38, 0.3);
+    box-shadow: 
+        0 25px 50px -12px rgba(0, 0, 0, 0.8),
+        0 0 0 1px rgba(220, 38, 38, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    position: relative;
+    overflow: hidden;
+}
+
+.floating-window::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(220, 38, 38, 0.5), transparent);
+    animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+    0%, 100% { opacity: 0; }
+    50% { opacity: 1; }
+}
+
+input[type="text"], 
+input[type="password"] {
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+input[type="text"]:focus, 
+input[type="password"]:focus {
+    background: rgba(31, 41, 55, 0.8);
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+    transform: translateY(-1px);
+}
+
+input[type="text"]:hover, 
+input[type="password"]:hover {
+    border-color: rgba(220, 38, 38, 0.4);
+    background: rgba(31, 41, 55, 0.6);
+}
+
+button[type="submit"] {
+    position: relative;
+    overflow: hidden;
+}
+
+button[type="submit"]::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    transition: left 0.5s;
+}
+
+button[type="submit"]:hover::before {
+    left: 100%;
+}
+
+button[type="submit"]:active {
+    transform: scale(0.98);
+}
+
+.flash-message {
+    animation: slideInDown 0.3s ease-out;
+    position: relative;
+}
+
+@keyframes slideInDown {
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.flash-message::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: #dc2626;
+    animation: pulse 2s infinite;
+}
+
+#loadingState {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.particles-container {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+}
+
+.particle {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: rgba(220, 38, 38, 0.3);
+    border-radius: 50%;
+    animation: float 6s ease-in-out infinite;
+}
+
+.particle:nth-child(1) {
+    top: 20%;
+    left: 20%;
+    animation-delay: 0s;
+    animation-duration: 6s;
+}
+
+.particle:nth-child(2) {
+    top: 60%;
+    left: 80%;
+    animation-delay: -2s;
+    animation-duration: 8s;
+}
+
+.particle:nth-child(3) {
+    top: 80%;
+    left: 40%;
+    animation-delay: -4s;
+    animation-duration: 7s;
+}
+
+.particle:nth-child(4) {
+    top: 40%;
+    left: 60%;
+    animation-delay: -1s;
+    animation-duration: 9s;
+}
+
+.particle:nth-child(5) {
+    top: 10%;
+    left: 90%;
+    animation-delay: -3s;
+    animation-duration: 5s;
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0px) rotate(0deg);
+        opacity: 0.3;
+    }
+    33% {
+        transform: translateY(-20px) rotate(120deg);
+        opacity: 0.8;
+    }
+    66% {
+        transform: translateY(20px) rotate(240deg);
+        opacity: 0.5;
+    }
+}
+
+input[type="checkbox"] {
+    appearance: none;
+    background: #374151;
+    border: 2px solid #6b7280;
+    border-radius: 4px;
+    width: 16px;
+    height: 16px;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+input[type="checkbox"]:checked {
+    background: #dc2626;
+    border-color: #dc2626;
+}
+
+input[type="checkbox"]:checked::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+}
+
+input[type="checkbox"]:hover {
+    border-color: #dc2626;
+    transform: scale(1.05);
+}
+
+.floating-window .bg-red-600 {
+    position: relative;
+    overflow: hidden;
+}
+
+.floating-window .bg-red-600::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: conic-gradient(transparent, rgba(255, 255, 255, 0.1), transparent);
+    animation: spin 4s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #374151;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #dc2626;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #b91c1c;
+}
+
+@media (max-width: 480px) {
+    body {
+        padding: 16px;
+    }
+    
+    .floating-window {
+        padding: 24px;
+    }
+    
+    input[type="text"], 
+    input[type="password"] {
+        padding: 12px;
+    }
+    
+    button[type="submit"] {
+        padding: 12px;
+    }
+}
+
+label {
+    transition: color 0.2s;
+    cursor: pointer;
+}
+
+label:hover {
+    color: #fca5a5;
+}
+
+#loginForm:focus-within .floating-window::before {
+    animation-duration: 1s;
+}
+
+.floating-window::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #dc2626, #f59e0b, #10b981, #3b82f6, #8b5cf6, #dc2626);
+    background-size: 200% 100%;
+    animation: security-sweep 3s linear infinite;
+}
+
+@keyframes security-sweep {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}

@@ -1,0 +1,311 @@
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #374151;
+}
+
+body {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+    background-size: 200% 200%;
+    animation: backgroundShift 10s ease infinite;
+}
+
+@keyframes backgroundShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+.floating-window {
+    backdrop-filter: blur(10px);
+    background: rgba(17, 24, 39, 0.9);
+    border: 1px solid rgba(75, 85, 99, 0.5);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 
+                0 10px 10px -5px rgba(0, 0, 0, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+}
+
+.table-container {
+    overflow-x: auto;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.agent-table {
+    min-width: 1000px;
+}
+
+.graph-container {
+    cursor: grab;
+    user-select: none;
+}
+
+.graph-container:active {
+    cursor: grabbing;
+}
+
+.draggable-node {
+    cursor: move;
+}
+
+.draggable-node:hover {
+    filter: brightness(1.2);
+}
+
+.zoom-controls {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.zoom-btn {
+    width: 40px;
+    height: 40px;
+    background: rgba(31, 41, 55, 0.9);
+    border: 1px solid rgba(75, 85, 99, 0.5);
+    border-radius: 8px;
+    color: #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.zoom-btn:hover {
+    background: rgba(55, 65, 81, 0.9);
+    transform: scale(1.05);
+}
+
+.console-tab {
+    backdrop-filter: blur(10px);
+    background: rgba(31, 41, 55, 0.9);
+    border: 1px solid rgba(75, 85, 99, 0.5);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.modal-overlay {
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(5px);
+}
+
+.agent-generator-modal {
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.custom-checkbox {
+    position: relative;
+    display: inline-block;
+    cursor: pointer;
+}
+
+.custom-checkbox input[type="checkbox"] {
+    opacity: 0;
+    position: absolute;
+}
+
+.custom-checkbox .checkmark {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    background: #374151;
+    border: 2px solid #6B7280;
+    border-radius: 4px;
+    position: relative;
+    transition: all 0.2s;
+}
+
+.custom-checkbox input[type="checkbox"]:checked + .checkmark {
+    background: #10b981;
+    border-color: #10b981;
+}
+
+.custom-checkbox input[type="checkbox"]:checked + .checkmark:after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+.code-block {
+    background: #0f172a;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    font-family: 'Courier New', monospace;
+    line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+    .flex.h-screen.gap-6 {
+        flex-direction: column;
+        height: auto;
+    }
+    
+    .w-80 {
+        width: 100%;
+        max-height: 300px;
+    }
+    
+    .agent-table {
+        min-width: auto;
+        font-size: 0.75rem;
+    }
+    
+    .table-container {
+        max-height: 300px;
+    }
+    
+    .floating-window {
+        margin: 10px 0;
+        padding: 16px;
+    }
+    
+    .graph-container {
+        height: 300px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    body {
+        padding: 12px;
+    }
+    
+    .flex.justify-between.items-center.mb-6 {
+        flex-direction: column;
+        gap: 16px;
+    }
+    
+    .flex.items-center.gap-4 {
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .flex.gap-2 {
+        gap: 8px;
+    }
+    
+    .p-3 {
+        padding: 8px;
+    }
+    
+    .agent-generator-modal {
+        margin: 8px;
+        padding: 16px;
+    }
+    
+    .grid.grid-cols-1.lg\\:grid-cols-2.gap-8 {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+}
+
+.btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+.btn-text {
+    display: inline-block;
+    line-height: 1;
+}
+
+.custom-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    white-space: nowrap;
+}
+
+.modal-container {
+    position: relative;
+}
+
+.close-btn-outside {
+    position: absolute;
+    top: -15px;
+    right: -15px;
+    z-index: 60;
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(145deg, #dc2626, #b91c1c);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4),
+                0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.close-btn-outside:hover {
+    transform: scale(1.1) rotate(90deg);
+    background: linear-gradient(145deg, #ef4444, #dc2626);
+    box-shadow: 0 6px 20px rgba(220, 38, 38, 0.6),
+                0 0 0 2px rgba(255, 255, 255, 0.2);
+}
+
+.close-btn-outside svg {
+    width: 18px;
+    height: 18px;
+    color: white;
+    transition: all 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #6B7280;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #9CA3AF;
+}
+
+.screenshot-container {
+    height: 100%;
+    overflow: hidden;
+    position: relative;
+}
+
+.screenshot-img {
+    transition: transform 0.2s ease;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+.screenshot-controls {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 10;
+    display: flex;
+    gap: 5px;
+    background: rgba(31, 41, 55, 0.8);
+    padding: 5px;
+    border-radius: 6px;
+    backdrop-filter: blur(4px);
+}
+
+.screenshot-container.zoomed {
+    cursor: move;
+}
