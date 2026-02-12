@@ -1,3 +1,187 @@
+let tableFilters = {
+    search: '',
+    status: 'all',
+    domain: 'all',
+    admin: 'all',
+    groupByDomain: false
+};
+
+let knownDomains = new Set();
+
+function applyFilters() {
+    const agents = Object.values(currentAgents);
+    let filtered = agents;
+
+    if (tableFilters.search) {
+        const q = tableFilters.search.toLowerCase();
+        filtered = filtered.filter(a =>
+            (a.uuid && a.uuid.toLowerCase().includes(q)) ||
+            (a.hostname && a.hostname.toLowerCase().includes(q)) ||
+            (a.username && a.username.toLowerCase().includes(q)) ||
+            (a.domain && a.domain.toLowerCase().includes(q))
+        );
+    }
+
+    if (tableFilters.status !== 'all') {
+        filtered = filtered.filter(a => {
+            const online = isAgentOnline(a.last_seen);
+            return tableFilters.status === 'online' ? online : !online;
+        });
+    }
+
+    if (tableFilters.domain !== 'all') {
+        filtered = filtered.filter(a => (a.domain || 'WORKGROUP') === tableFilters.domain);
+    }
+
+    if (tableFilters.admin !== 'all') {
+        filtered = filtered.filter(a => {
+            const admin = isAgentAdmin(a.admin);
+            return tableFilters.admin === 'yes' ? admin : !admin;
+        });
+    }
+
+    renderFilteredTable(filtered);
+}
+
+function renderFilteredTable(agents) {
+    const tbody = document.getElementById('agentsTableBody');
+    const agentCount = document.getElementById('agentCount');
+
+    tbody.innerHTML = '';
+    agentCount.textContent = Object.keys(currentAgents).length;
+
+    const filterCount = document.getElementById('filterCount');
+    const totalCount = Object.keys(currentAgents).length;
+    if (filterCount) {
+        const hasFilter = tableFilters.search || tableFilters.status !== 'all' || tableFilters.domain !== 'all' || tableFilters.admin !== 'all';
+        filterCount.textContent = hasFilter ? `${agents.length} / ${totalCount}` : totalCount;
+        filterCount.className = hasFilter ? 'text-white font-bold text-yellow-300' : 'text-white font-bold';
+    }
+
+    if (agents.length === 0) {
+        const row = document.createElement('tr');
+        const hasFilter = tableFilters.search || tableFilters.status !== 'all' || tableFilters.domain !== 'all' || tableFilters.admin !== 'all';
+        row.innerHTML = `
+            <td colspan="11" class="px-4 py-8 text-center text-gray-400">
+                ${hasFilter ? 'No agents match current filters' : 'No agents connected'}
+            </td>
+        `;
+        tbody.appendChild(row);
+        return;
+    }
+
+    if (tableFilters.groupByDomain) {
+        const groups = {};
+        agents.forEach(a => {
+            const d = a.domain || 'WORKGROUP';
+            if (!groups[d]) groups[d] = [];
+            groups[d].push(a);
+        });
+
+        const sortedDomains = Object.keys(groups).sort();
+        sortedDomains.forEach(domain => {
+            const headerRow = document.createElement('tr');
+            headerRow.className = 'domain-group-header';
+            const onlineCount = groups[domain].filter(a => isAgentOnline(a.last_seen)).length;
+            const totalDomain = groups[domain].length;
+            headerRow.innerHTML = `
+                <td colspan="10" class="px-4 py-2 bg-gray-800 border-b border-gray-600">
+                    <div class="flex items-center gap-3">
+                        <span class="text-sm font-bold text-blue-400">${domain}</span>
+                        <span class="text-xs text-gray-400 bg-gray-700 px-2 py-0.5 rounded-full">${totalDomain} agents</span>
+                        <span class="text-xs ${onlineCount > 0 ? 'text-green-400' : 'text-red-400'}">${onlineCount} online</span>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(headerRow);
+            groups[domain].forEach(agent => tbody.appendChild(createAgentRow(agent)));
+        });
+    } else {
+        agents.forEach(agent => tbody.appendChild(createAgentRow(agent)));
+    }
+}
+
+function updateDomainFilter(agents) {
+    agents.forEach(a => knownDomains.add(a.domain || 'WORKGROUP'));
+
+    const select = document.getElementById('filterDomain');
+    if (!select) return;
+
+    const current = select.value;
+    const options = ['<option value="all">All Domains</option>'];
+    Array.from(knownDomains).sort().forEach(d => {
+        options.push(`<option value="${d}" ${current === d ? 'selected' : ''}>${d}</option>`);
+    });
+    select.innerHTML = options.join('');
+}
+
+function setFilterStatus(value) {
+    tableFilters.status = value;
+    document.querySelectorAll('.filter-status-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.value === value) btn.classList.add('active');
+    });
+    applyFilters();
+}
+
+function setFilterAdmin(value) {
+    tableFilters.admin = value;
+    document.querySelectorAll('.filter-admin-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.value === value) btn.classList.add('active');
+    });
+    applyFilters();
+}
+
+function toggleGroupByDomain() {
+    tableFilters.groupByDomain = !tableFilters.groupByDomain;
+    const btn = document.getElementById('groupByDomainBtn');
+    if (btn) {
+        btn.classList.toggle('active', tableFilters.groupByDomain);
+    }
+    applyFilters();
+}
+
+function clearAllFilters() {
+    tableFilters.search = '';
+    tableFilters.status = 'all';
+    tableFilters.domain = 'all';
+    tableFilters.admin = 'all';
+
+    const searchInput = document.getElementById('filterSearch');
+    if (searchInput) searchInput.value = '';
+
+    const domainSelect = document.getElementById('filterDomain');
+    if (domainSelect) domainSelect.value = 'all';
+
+    document.querySelectorAll('.filter-status-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.value === 'all');
+    });
+    document.querySelectorAll('.filter-admin-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.value === 'all');
+    });
+
+    applyFilters();
+}
+
+function initFilterListeners() {
+    const searchInput = document.getElementById('filterSearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', debounce((e) => {
+            tableFilters.search = e.target.value;
+            applyFilters();
+        }, 200));
+    }
+
+    const domainSelect = document.getElementById('filterDomain');
+    if (domainSelect) {
+        domainSelect.addEventListener('change', (e) => {
+            tableFilters.domain = e.target.value;
+            applyFilters();
+        });
+    }
+}
+
 function switchView(view) {
     currentView = view;
     const tableView = document.getElementById('tableView');
@@ -52,27 +236,12 @@ function switchView(view) {
 }
 
 function updateAgentsTable(agents) {
-    const tbody = document.getElementById('agentsTableBody');
-    const agentCount = document.getElementById('agentCount');
-    
-    tbody.innerHTML = '';
-    agentCount.textContent = agents.length;
-    
-    if (agents.length === 0) {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td colspan="11" class="px-4 py-8 text-center text-gray-400">
-                No agents connected
-            </td>
-        `;
-        tbody.appendChild(row);
-        return;
-    }
-
     agents.forEach(agent => {
         currentAgents[agent.uuid] = agent;
-        tbody.appendChild(createAgentRow(agent));
     });
+
+    updateDomainFilter(agents);
+    applyFilters();
 }
 
 function createAgentRow(agent) {

@@ -34,10 +34,10 @@
         </div>
       </div>
     </div>
-    <div class="flex h-screen gap-6">
-      <div class="flex-1 flex flex-col min-w-0">
-        <div class="floating-window p-6 mb-6">
-          <div class="flex justify-between items-center mb-6">
+    <div class="flex h-screen gap-6 overflow-hidden">
+      <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <div id="agents-section" class="floating-window p-4 flex flex-col overflow-hidden" style="height: 45vh; min-height: 120px;">
+          <div class="flex justify-between items-center mb-3">
             <h2 class="text-2xl font-bold text-green-400 flex items-center gap-2">
               <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div> Connected Agents
             </h2>
@@ -69,10 +69,55 @@
               </div>
             </div>
           </div>
-          <div id="tableView" class="block">
+          <div id="tableView" class="flex-1 flex flex-col overflow-hidden">
+            <div id="filterBar" class="filter-bar flex items-center gap-3 px-3 py-2 flex-shrink-0">
+              <div class="filter-search-wrapper">
+                <svg class="filter-search-icon w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+                </svg>
+                <input id="filterSearch" type="text" placeholder="Search host, user, uuid..." class="filter-search-input" spellcheck="false">
+              </div>
+
+              <select id="filterDomain" class="filter-select">
+                <option value="all">All Domains</option>
+              </select>
+
+              <div class="filter-btn-group">
+                <button class="filter-status-btn active" data-value="all" onclick="setFilterStatus('all')">All</button>
+                <button class="filter-status-btn" data-value="online" onclick="setFilterStatus('online')">
+                  <span class="w-2 h-2 bg-green-500 rounded-full inline-block"></span> Online
+                </button>
+                <button class="filter-status-btn" data-value="offline" onclick="setFilterStatus('offline')">
+                  <span class="w-2 h-2 bg-red-500 rounded-full inline-block"></span> Offline
+                </button>
+              </div>
+
+              <div class="filter-btn-group">
+                <button class="filter-admin-btn active" data-value="all" onclick="setFilterAdmin('all')">All</button>
+                <button class="filter-admin-btn" data-value="yes" onclick="setFilterAdmin('yes')">Admin</button>
+                <button class="filter-admin-btn" data-value="no" onclick="setFilterAdmin('no')">User</button>
+              </div>
+
+              <button id="groupByDomainBtn" class="filter-toggle-btn" onclick="toggleGroupByDomain()" title="Group by Domain">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M2 4.5A2.5 2.5 0 014.5 2h11a2.5 2.5 0 010 5h-11A2.5 2.5 0 012 4.5zM2.5 9.5A1.5 1.5 0 014 8h6a1.5 1.5 0 010 3H4a1.5 1.5 0 01-1.5-1.5zM3 14a1 1 0 011-1h4a1 1 0 110 2H4a1 1 0 01-1-1z"/>
+                </svg>
+                Group
+              </button>
+
+              <button class="filter-clear-btn" onclick="clearAllFilters()" title="Clear Filters">
+                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                </svg>
+              </button>
+
+              <div class="ml-auto text-xs text-gray-500">
+                Showing <span id="filterCount" class="text-white font-bold">0</span>
+              </div>
+            </div>
             <div class="table-container rounded-lg border border-gray-700">
               <table class="agent-table w-full text-sm">
-                <thead class="sticky top-0">
+                <thead class="sticky top-0 z-10">
                   <tr class="bg-gray-800 text-gray-300">
                     <th class="px-4 py-3 text-left border-b border-gray-700">Status</th>
                     <th class="px-4 py-3 text-left border-b border-gray-700">UUID</th>
@@ -91,8 +136,8 @@
               </table>
             </div>
           </div>
-          <div id="graphView" class="hidden">
-            <div class="floating-window graph-container relative overflow-hidden" style="height: 500px;">
+          <div id="graphView" class="hidden flex-1 flex flex-col overflow-hidden">
+            <div class="floating-window graph-container relative overflow-hidden flex-1">
               <div class="zoom-controls">
                 <button class="zoom-btn" onclick="zoomIn()" title="Zoom In">
                   <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -129,9 +174,12 @@
             </div>
           </div>
         </div>
-        <div class="flex-1 overflow-y-auto">
-          <div id="tabs" class="space-y-4">
-            <div class="text-center text-gray-400 mt-8 p-8 floating-window">
+        <div id="resize-handle" class="resize-handle flex-shrink-0"><span></span></div>
+        <div id="interact-section" class="flex-1 flex flex-col overflow-hidden">
+          <div id="tabs-bar" class="flex items-center gap-1 px-2 overflow-x-auto flex-shrink-0 tab-bar-container">
+          </div>
+          <div id="tabs-content" class="flex-1 flex flex-col overflow-hidden relative">
+            <div id="tabs-placeholder" class="text-center text-gray-400 mt-8 p-8 floating-window">
               <p class="text-lg">Click "Interact" in the table to open the agent's interface</p>
               <p class="text-sm mt-2 opacity-75">Agent interfaces will appear here as independent windows</p>
             </div>

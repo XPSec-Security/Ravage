@@ -81,7 +81,8 @@ function validateRequiredElements() {
         'agentsTableBody',
         'agentCount',
         'eventLog',
-        'tabs',
+        'tabs-bar',
+        'tabs-content',
         'network-container',
         'agentGeneratorModal'
     ];
@@ -106,11 +107,47 @@ function initializeApplication() {
         };
 
         setupGlobalEventListeners();
+        initFilterListeners();
         initializeDataPolling();
+        initResizeHandle();
 
     } catch (error) {
         showErrorMessage('Application initialization error');
     }
+}
+
+function initResizeHandle() {
+    const handle = document.getElementById('resize-handle');
+    const agentsSection = document.getElementById('agents-section');
+    if (!handle || !agentsSection) return;
+
+    let isDragging = false;
+    let startY, startHeight;
+
+    handle.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        startY = e.clientY;
+        startHeight = agentsSection.offsetHeight;
+        handle.classList.add('dragging');
+        document.body.style.cursor = 'row-resize';
+        document.body.style.userSelect = 'none';
+        e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const delta = e.clientY - startY;
+        const newHeight = Math.max(80, startHeight + delta);
+        agentsSection.style.height = newHeight + 'px';
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (!isDragging) return;
+        isDragging = false;
+        handle.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+    });
 }
 
 function showErrorMessage(message) {
@@ -149,15 +186,22 @@ function clearAllData() {
     updateAgentsTable([]);
     updateEventLog([]);
 
-    const tabs = document.getElementById('tabs');
-    if (tabs) {
-        tabs.innerHTML = `
-            <div class="text-center text-gray-400 mt-8 p-8 floating-window">
-                <p class="text-lg">Click "Console" in the table to open the agent's terminal</p>
-                <p class="text-sm mt-2 opacity-75">Terminals will appear here as independent windows</p>
-            </div>
+    const tabsBar = document.getElementById('tabs-bar');
+    const tabsContent = document.getElementById('tabs-content');
+    if (tabsBar) tabsBar.innerHTML = '';
+    if (tabsContent) {
+        tabsContent.innerHTML = '';
+        const placeholder = document.createElement('div');
+        placeholder.id = 'tabs-placeholder';
+        placeholder.className = 'text-center text-gray-400 mt-8 p-8 floating-window';
+        placeholder.innerHTML = `
+            <p class="text-lg">Click "Interact" in the table to open the agent's interface</p>
+            <p class="text-sm mt-2 opacity-75">Agent interfaces will appear here as independent windows</p>
         `;
+        tabsContent.appendChild(placeholder);
     }
+    openTabs = [];
+    activeTabUuid = null;
 }
 
 document.addEventListener('DOMContentLoaded', function() {
