@@ -262,10 +262,9 @@ class AdminServer:
             self.logger.log_event(f"COMMAND - '{username}' sent incomplete command '{command_name}' to {uuid[:8]}")
             return redirect("/")
 
-        self.db.set_command(uuid, cmd)
-        self.db.add_command_history(uuid, cmd, '', username)
+        self.db.add_task_to_queue(uuid, cmd, username)
         cmd_preview = cmd[:50] + "..." if len(cmd) > 50 else cmd
-        self.logger.log_event(f"COMMAND - '{username}' sent command to {uuid[:8]}: {cmd_preview[:30]}{'...' if len(cmd_preview) > 30 else ''}")
+        self.logger.log_event(f"COMMAND - '{username}' queued command to {uuid[:8]}: {cmd_preview[:30]}{'...' if len(cmd_preview) > 30 else ''}")
         return redirect("/")
 
     def _delete_agent(self, uuid):

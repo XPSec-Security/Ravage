@@ -205,6 +205,7 @@ function clearAllData() {
     commandInputHistory = {};
     historyIndexMap = {};
     lastHistoryHash = {};
+    fileManagerState = {};
 }
 
 document.addEventListener('DOMContentLoaded', function() {

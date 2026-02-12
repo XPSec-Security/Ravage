@@ -31,17 +31,12 @@
   <p><em>Dashboard Interface - Agent Management</em></p>
 </div>
 
-## 🚀 Installation Guide
+## Installation Guide
 
 ### Prerequisites
 
-```bash
-# Required Python version
-Python 3.8+
-
-# Required packages
-pip install flask pyyaml cryptography
-```
+- Python 3.8+
+- OpenSSL (for SSL certificate generation)
 
 ### Step-by-Step Setup
 
@@ -51,7 +46,18 @@ git clone https://github.com/XPSec-Security/Ravage.git
 cd Ravage
 ```
 
-2. **Create SSL certificates**
+2. **Create and activate virtual environment**
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+3. **Install dependencies**
+```bash
+pip install -r requirements.txt
+```
+
+4. **Create SSL certificates**
 ```bash
 mkdir certs
 # For development/testing (self-signed)
@@ -60,17 +66,15 @@ openssl req -x509 -newkey rsa:4096 -keyout certs/server.key -out certs/server.cr
 # For production environments, use Let's Encrypt or proper CA-signed certificates
 ```
 
-3. **Configure the framework**
+5. **Configure the framework**
 ```bash
 cp profiles/profile.yaml.example profiles/profile.yaml
 # Edit profiles/profile.yaml with your settings (see Configuration section)
 ```
 
-4. **Launch the framework**
+6. **Launch the framework**
 ```bash
 python main.py
-# or
-python3 main.py
 ```
 
 ## Configuration in Depth

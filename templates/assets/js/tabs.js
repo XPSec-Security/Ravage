@@ -96,6 +96,12 @@ function createConsolePanel(uuid, agent) {
                     class="px-3 py-1 text-sm text-gray-400 hover:text-gray-300">
                     Screenshot
                 </button>
+                <button
+                    onclick="switchAgentTab('${uuid}', 'files')"
+                    id="files-tab-btn-${uuid}"
+                    class="px-3 py-1 text-sm text-gray-400 hover:text-gray-300">
+                    Files
+                </button>
             </div>
         </div>
 
@@ -159,12 +165,20 @@ function createConsolePanel(uuid, agent) {
                 </div>
             </div>
         </div>
+
+        <div id="files-content-${uuid}" class="hidden flex-1 flex flex-col overflow-hidden">
+            <div class="bg-black rounded-lg border border-gray-600 overflow-hidden shadow-lg flex-1 flex flex-col">
+                <div id="file-manager-root-${uuid}" class="flex-1 flex flex-col overflow-hidden"></div>
+            </div>
+        </div>
     `;
 
     setTimeout(() => {
         const commandInput = document.getElementById(`command-input-${uuid}`);
         if (commandInput) commandInput.focus();
     }, 100);
+
+    setTimeout(() => initFileManager(uuid), 50);
 
     return panel;
 }
@@ -193,7 +207,7 @@ async function loadCommandHistory(uuid) {
 }
 
 function hashHistory(history) {
-    return history.map(h => h.command + '|' + (h.output || '')).join('\n');
+    return history.map(h => h.command + '|' + (h.output || '') + '|' + (h.status || '')).join('\n');
 }
 
 function renderHistory(uuid, history) {
@@ -213,9 +227,20 @@ function renderHistory(uuid, history) {
             const time = entry.timestamp ? `<span class="text-gray-600 text-xs">[${entry.timestamp}]</span> ` : '';
             const op = entry.operator ? `<span class="text-blue-400 text-xs">${entry.operator}</span> ` : '';
             html += `<div class="history-entry mb-1">`;
-            html += `<div class="history-cmd">${time}${op}<span class="text-yellow-400">></span> <span class="text-white">${escapeHtml(entry.command)}</span></div>`;
+            const status = entry.status || 'completed';
+            let statusBadge = '';
+            if (status === 'queued') {
+                statusBadge = '<span class="text-yellow-500 text-xs ml-2 font-medium">[queued]</span>';
+            } else if (status === 'dispatched') {
+                statusBadge = '<span class="text-orange-400 text-xs ml-2 font-medium">[executing]</span>';
+            }
+            html += `<div class="history-cmd">${time}${op}<span class="text-yellow-400">></span> <span class="text-white">${escapeHtml(entry.command)}</span>${statusBadge}</div>`;
             if (entry.output) {
                 html += `<div class="history-output text-green-400 whitespace-pre-wrap">${escapeHtml(entry.output)}</div>`;
+            } else if (status === 'queued') {
+                html += `<div class="history-output text-yellow-600 italic">[Queued - waiting for previous tasks...]</div>`;
+            } else if (status === 'dispatched') {
+                html += `<div class="history-output text-orange-400 italic">[Sent to agent - waiting for response...]</div>`;
             } else {
                 html += `<div class="history-output text-gray-500 italic">[Waiting for agent response...]</div>`;
             }
@@ -312,8 +337,8 @@ async function sendCommand(uuid, command) {
     const consoleOutput = document.getElementById(`console-output-${uuid}`);
 
     const pendingHtml = `<div class="history-entry mb-1">
-        <div class="history-cmd"><span class="text-yellow-400">></span> <span class="text-white">${escapeHtml(command)}</span></div>
-        <div class="history-output text-gray-500 italic">[${command.toLowerCase() === 'help' ? 'Loading documentation...' : 'Command sent, waiting for response...'}]</div>
+        <div class="history-cmd"><span class="text-yellow-400">></span> <span class="text-white">${escapeHtml(command)}</span>${command.toLowerCase() === 'help' ? '' : '<span class="text-yellow-500 text-xs ml-2 font-medium">[queued]</span>'}</div>
+        <div class="history-output text-gray-500 italic">[${command.toLowerCase() === 'help' ? 'Loading documentation...' : 'Command queued, waiting for dispatch...'}]</div>
     </div>`;
     consoleOutput.innerHTML += pendingHtml;
     consoleOutput.scrollTop = consoleOutput.scrollHeight;
@@ -373,6 +398,7 @@ function closeTab(uuid) {
 
     openTabs = openTabs.filter(id => id !== uuid);
     delete lastHistoryHash[uuid];
+    delete fileManagerState[uuid];
 
     if (activeTabUuid === uuid) {
         if (openTabs.length > 0) {

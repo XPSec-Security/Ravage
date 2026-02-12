@@ -78,7 +78,7 @@ function renderDownloadsList(files) {
             if (uuidMatch) {
                 agentUuid = uuidMatch[1];
             } else if (file.filename.startsWith('screenshot_')) {
-                const screenshotMatch = file.filename.match(/^screenshot_([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})/);
+                const screenshotMatch = file.filename.match(/^screenshot_([a-fA-F0-9]+)/);
                 if (screenshotMatch) {
                     agentUuid = screenshotMatch[1];
                 }
