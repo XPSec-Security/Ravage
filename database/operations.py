@@ -116,6 +116,63 @@ class AgentDatabase:
             conn.close()
             return False
     
+    def add_command_history(self, uuid, command, output='', operator='', timestamp=None):
+        if timestamp is None:
+            from datetime import datetime
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO command_history (uuid, command, output, operator, timestamp)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (uuid, command, output, operator, timestamp))
+        history_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        return history_id
+
+    def update_command_history_output(self, uuid, output):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE command_history SET output = ?
+            WHERE id = (
+                SELECT id FROM command_history
+                WHERE uuid = ? AND output = ''
+                ORDER BY id DESC LIMIT 1
+            )
+        ''', (output, uuid))
+        conn.commit()
+        conn.close()
+
+    def get_command_history(self, uuid, limit=200):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT command, output, operator, timestamp
+            FROM command_history
+            WHERE uuid = ?
+            ORDER BY id ASC
+            LIMIT ?
+        ''', (uuid, limit))
+        history = []
+        for row in cursor.fetchall():
+            history.append({
+                'command': row[0],
+                'output': row[1],
+                'operator': row[2],
+                'timestamp': row[3]
+            })
+        conn.close()
+        return history
+
+    def delete_agent_history(self, uuid):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM command_history WHERE uuid = ?', (uuid,))
+        conn.commit()
+        conn.close()
+
     def get_agent_by_uuid(self, uuid):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()

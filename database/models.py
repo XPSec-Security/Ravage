@@ -25,6 +25,20 @@ def init_database():
             cmdout TEXT
         )
     ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS command_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            uuid TEXT NOT NULL,
+            command TEXT NOT NULL,
+            output TEXT DEFAULT '',
+            operator TEXT DEFAULT '',
+            timestamp TEXT NOT NULL,
+            FOREIGN KEY (uuid) REFERENCES agents(uuid) ON DELETE CASCADE
+        )
+    ''')
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_history_uuid ON command_history(uuid)
+    ''')
     conn.commit()
     conn.close()
     print(f"\033[92m[+]\033[0m Database initialized: {DB_FILE}")

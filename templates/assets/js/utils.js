@@ -14,7 +14,8 @@ const CONFIG = {
         DATA: '/api/data',
         COMMAND: '/command',
         HTA_DROPPER: '/hta-dropper',
-        DELETE_AGENT: '/api/agent'
+        DELETE_AGENT: '/api/agent',
+        HISTORY: '/api/history'
     }
 };
 

@@ -132,6 +132,10 @@ class AdminServer:
         @login_required(self.auth_manager)
         def set_command(uuid):
             return self._set_agent_command(uuid)
+        @self.app.route("/api/history/<uuid>")
+        @login_required(self.auth_manager)
+        def api_history(uuid):
+            return self._get_command_history(uuid)
         @self.app.route("/assets/<path:filename>")
         def serve_assets(filename):
             return self._serve_assets(filename)
@@ -213,44 +217,53 @@ class AdminServer:
         events = self.logger.get_recent_events(100)
         return jsonify({"agents": agents, "events": events})
 
+    def _get_command_history(self, uuid):
+        history = self.db.get_command_history(uuid)
+        return jsonify({"history": history})
+
     def _set_agent_command(self, uuid):
         username = self.auth_manager.get_current_user()
         cmd = request.form.get("command", "").strip()
-        
+
         if not cmd:
             self.db.set_command_output(uuid, "Please enter a command.")
             self.logger.log_event(f"COMMAND - '{username}' sent empty command to {uuid[:8]}")
             return redirect("/")
-            
+
         if cmd.lower() == "help":
             help_output = self._generate_help_output()
             self.db.set_command_output(uuid, help_output)
+            self.db.add_command_history(uuid, cmd, help_output, username)
             return redirect("/")
-            
+
         help_match = re.match(r'^help\s+(\w+)$', cmd.lower())
         if help_match:
             command_name = help_match.group(1)
             help_output = self._generate_command_help(command_name)
             self.db.set_command_output(uuid, help_output)
+            self.db.add_command_history(uuid, cmd, help_output, username)
             return redirect("/")
-            
+
         parts = cmd.split(' ', 1)
         command_name = parts[0].lower()
         command_args = parts[1] if len(parts) > 1 else ""
-        
+
         if not self._is_valid_command(command_name):
             error_output = f"Unknown command: {command_name}. Type 'help' for a list of available commands."
             self.db.set_command_output(uuid, error_output)
+            self.db.add_command_history(uuid, cmd, error_output, username)
             self.logger.log_event(f"COMMAND - '{username}' sent unknown command '{command_name}' to {uuid[:8]}")
             return redirect("/")
-            
+
         validation_result = self._validate_command_parameters(command_name, command_args)
         if validation_result:
             self.db.set_command_output(uuid, validation_result)
+            self.db.add_command_history(uuid, cmd, validation_result, username)
             self.logger.log_event(f"COMMAND - '{username}' sent incomplete command '{command_name}' to {uuid[:8]}")
             return redirect("/")
-            
+
         self.db.set_command(uuid, cmd)
+        self.db.add_command_history(uuid, cmd, '', username)
         cmd_preview = cmd[:50] + "..." if len(cmd) > 50 else cmd
         self.logger.log_event(f"COMMAND - '{username}' sent command to {uuid[:8]}: {cmd_preview[:30]}{'...' if len(cmd_preview) > 30 else ''}")
         return redirect("/")
@@ -265,6 +278,7 @@ class AdminServer:
             if not agent:
                 self.logger.log_event(f"DELETE AGENT - Agent not found by '{username}': {uuid[:8]}")
                 return jsonify({"success": False, "error": "Agent not found"}), 404
+            self.db.delete_agent_history(uuid)
             deleted = self.db.delete_agent(uuid)
             if deleted:
                 agent_info = f"{agent.get('hostname', 'Unknown')} ({agent.get('username', 'Unknown')})"

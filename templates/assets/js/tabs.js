@@ -1,5 +1,8 @@
 let openTabs = [];
 let activeTabUuid = null;
+let commandInputHistory = {};
+let historyIndexMap = {};
+let lastHistoryHash = {};
 
 function openTab(uuid) {
     if (openTabs.includes(uuid)) {
@@ -14,6 +17,9 @@ function openTab(uuid) {
     if (placeholder) placeholder.classList.add('hidden');
 
     openTabs.push(uuid);
+
+    if (!commandInputHistory[uuid]) commandInputHistory[uuid] = [];
+    historyIndexMap[uuid] = -1;
 
     const tabsBar = document.getElementById('tabs-bar');
     const tabBtn = document.createElement('div');
@@ -37,6 +43,7 @@ function openTab(uuid) {
     const panel = createConsolePanel(uuid, agent);
     tabsContent.appendChild(panel);
 
+    loadCommandHistory(uuid);
     activateTab(uuid);
 }
 
@@ -99,12 +106,19 @@ function createConsolePanel(uuid, agent) {
                         <div class="w-2 h-2 bg-green-500 rounded-full"></div>
                         Console
                     </span>
-                    <button onclick="sendQuickHelp('${uuid}')" class="text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded transition-all duration-200" title="Show commands (F1 or Ctrl+H)">
-                        Help
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <button onclick="clearConsoleHistory('${uuid}')" class="text-xs bg-gray-600 hover:bg-gray-500 px-2 py-1 rounded transition-all duration-200" title="Clear console">
+                            Clear
+                        </button>
+                        <button onclick="sendQuickHelp('${uuid}')" class="text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded transition-all duration-200" title="Show commands (F1 or Ctrl+H)">
+                            Help
+                        </button>
+                    </div>
                 </div>
                 <div class="console-container flex-1 flex flex-col overflow-hidden">
-                    <pre id="console-output-${uuid}" class="text-green-400 p-4 text-sm leading-relaxed flex-1 overflow-y-auto" style="font-family: 'Courier New', monospace;">${agent.cmdout || 'Console started.\n\nType "help" to see available commands.\nShortcuts: F1 or Ctrl+H for quick help.'}</pre>
+                    <div id="console-output-${uuid}" class="text-green-400 p-4 text-sm leading-relaxed flex-1 overflow-y-auto console-history-output" style="font-family: 'Courier New', monospace;">
+                        <div class="text-gray-500 text-xs mb-2">Loading command history...</div>
+                    </div>
                     <div class="console-input-line flex items-center px-4 pb-2 w-full flex-shrink-0">
                         <span class="text-green-400 mr-2">></span>
                         <input
@@ -155,14 +169,127 @@ function createConsolePanel(uuid, agent) {
     return panel;
 }
 
+async function loadCommandHistory(uuid) {
+    try {
+        const response = await fetch(`/api/history/${uuid}`);
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const history = data.history || [];
+
+        commandInputHistory[uuid] = history
+            .map(h => h.command)
+            .filter(cmd => cmd && cmd.toLowerCase() !== 'help');
+
+        renderHistory(uuid, history);
+        lastHistoryHash[uuid] = hashHistory(history);
+    } catch (err) {
+        console.error('Error loading history:', err);
+        const output = document.getElementById(`console-output-${uuid}`);
+        if (output) {
+            output.innerHTML = '<span class="text-gray-500">Console started. Type "help" for available commands.</span>';
+        }
+    }
+}
+
+function hashHistory(history) {
+    return history.map(h => h.command + '|' + (h.output || '')).join('\n');
+}
+
+function renderHistory(uuid, history) {
+    const output = document.getElementById(`console-output-${uuid}`);
+    if (!output) return;
+
+    const scrollTop = output.scrollTop;
+    const scrollHeight = output.scrollHeight;
+    const clientHeight = output.clientHeight;
+    const wasAtBottom = (scrollHeight - scrollTop - clientHeight) < 30;
+
+    if (history.length === 0) {
+        output.innerHTML = '<span class="text-gray-500">Console started. Type "help" for available commands.</span>';
+    } else {
+        let html = '';
+        history.forEach(entry => {
+            const time = entry.timestamp ? `<span class="text-gray-600 text-xs">[${entry.timestamp}]</span> ` : '';
+            const op = entry.operator ? `<span class="text-blue-400 text-xs">${entry.operator}</span> ` : '';
+            html += `<div class="history-entry mb-1">`;
+            html += `<div class="history-cmd">${time}${op}<span class="text-yellow-400">></span> <span class="text-white">${escapeHtml(entry.command)}</span></div>`;
+            if (entry.output) {
+                html += `<div class="history-output text-green-400 whitespace-pre-wrap">${escapeHtml(entry.output)}</div>`;
+            } else {
+                html += `<div class="history-output text-gray-500 italic">[Waiting for agent response...]</div>`;
+            }
+            html += `</div>`;
+        });
+        output.innerHTML = html;
+    }
+
+    if (wasAtBottom || scrollHeight <= clientHeight) {
+        output.scrollTop = output.scrollHeight;
+    } else {
+        output.scrollTop = scrollTop;
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function clearConsoleHistory(uuid) {
+    const output = document.getElementById(`console-output-${uuid}`);
+    if (output) {
+        output.innerHTML = '<span class="text-gray-500">Console cleared. Type "help" for available commands.</span>';
+    }
+}
+
 function handleConsoleInput(event, uuid) {
     const commandInput = document.getElementById(`command-input-${uuid}`);
+    const history = commandInputHistory[uuid] || [];
+
+    if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        if (history.length === 0) return;
+
+        if (historyIndexMap[uuid] === -1) {
+            historyIndexMap[uuid] = history.length - 1;
+        } else if (historyIndexMap[uuid] > 0) {
+            historyIndexMap[uuid]--;
+        }
+        commandInput.value = history[historyIndexMap[uuid]] || '';
+        setTimeout(() => { commandInput.selectionStart = commandInput.selectionEnd = commandInput.value.length; }, 0);
+        return;
+    }
+
+    if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        if (history.length === 0) return;
+
+        if (historyIndexMap[uuid] === -1) return;
+
+        if (historyIndexMap[uuid] < history.length - 1) {
+            historyIndexMap[uuid]++;
+            commandInput.value = history[historyIndexMap[uuid]] || '';
+        } else {
+            historyIndexMap[uuid] = -1;
+            commandInput.value = '';
+        }
+        setTimeout(() => { commandInput.selectionStart = commandInput.selectionEnd = commandInput.value.length; }, 0);
+        return;
+    }
 
     if (event.key === 'Enter') {
         event.preventDefault();
         const command = commandInput.value.trim();
 
         if (command) {
+            if (command.toLowerCase() !== 'help') {
+                commandInputHistory[uuid] = commandInputHistory[uuid] || [];
+                commandInputHistory[uuid].push(command);
+            }
+            historyIndexMap[uuid] = -1;
+
             sendCommand(uuid, command);
             commandInput.value = '';
         }
@@ -173,25 +300,27 @@ function handleConsoleInput(event, uuid) {
     } else if ((event.ctrlKey || event.metaKey) && event.key === 'h') {
         event.preventDefault();
         sendQuickHelp(uuid);
+    } else if (event.key === 'l' && event.ctrlKey) {
+        event.preventDefault();
+        clearConsoleHistory(uuid);
     }
 }
 
 async function sendCommand(uuid, command) {
     if (!command) return;
 
+    const consoleOutput = document.getElementById(`console-output-${uuid}`);
+
+    const pendingHtml = `<div class="history-entry mb-1">
+        <div class="history-cmd"><span class="text-yellow-400">></span> <span class="text-white">${escapeHtml(command)}</span></div>
+        <div class="history-output text-gray-500 italic">[${command.toLowerCase() === 'help' ? 'Loading documentation...' : 'Command sent, waiting for response...'}]</div>
+    </div>`;
+    consoleOutput.innerHTML += pendingHtml;
+    consoleOutput.scrollTop = consoleOutput.scrollHeight;
+
     try {
         const formData = new FormData();
         formData.append('command', command);
-
-        const consoleOutput = document.getElementById(`console-output-${uuid}`);
-        const currentOutput = consoleOutput.textContent;
-
-        if (command.toLowerCase() === 'help') {
-            consoleOutput.textContent = currentOutput + `\n\n> ${command}\n[Loading documentation...]`;
-        } else {
-            consoleOutput.textContent = currentOutput + `\n\n> ${command}\n[Command sent to agent, waiting for response...]`;
-        }
-        consoleOutput.scrollTop = consoleOutput.scrollHeight;
 
         const response = await fetch(`${CONFIG.API.COMMAND}/${uuid}`, {
             method: 'POST',
@@ -199,7 +328,7 @@ async function sendCommand(uuid, command) {
         });
 
         if (response.ok) {
-            setTimeout(fetchData, command.toLowerCase() === 'help' ? 200 : 500);
+            setTimeout(() => refreshHistory(uuid), command.toLowerCase() === 'help' ? 300 : 800);
             const commandInput = document.getElementById(`command-input-${uuid}`);
             if (commandInput) commandInput.focus();
         } else {
@@ -211,32 +340,28 @@ async function sendCommand(uuid, command) {
 }
 
 async function sendQuickHelp(uuid) {
+    sendCommand(uuid, 'help');
+}
+
+async function refreshHistory(uuid) {
     try {
-        const formData = new FormData();
-        formData.append('command', 'help');
+        const response = await fetch(`/api/history/${uuid}`);
+        if (!response.ok) return;
 
-        const consoleOutput = document.getElementById(`console-output-${uuid}`);
-        const currentOutput = consoleOutput.textContent;
-        consoleOutput.textContent = currentOutput + `\n\n> help\n[Loading command list...]`;
+        const data = await response.json();
+        const history = data.history || [];
+        const newHash = hashHistory(history);
 
-        const response = await fetch(`${CONFIG.API.COMMAND}/${uuid}`, {
-            method: 'POST',
-            body: formData
-        });
+        if (lastHistoryHash[uuid] !== newHash) {
+            lastHistoryHash[uuid] = newHash;
+            renderHistory(uuid, history);
 
-        if (response.ok) {
-            setTimeout(fetchData, 150);
-            const commandInput = document.getElementById(`command-input-${uuid}`);
-            if (commandInput) commandInput.focus();
-        } else {
-            consoleOutput.textContent = currentOutput + `\n\n> help\n[Error loading help]`;
-            alert('Error requesting help');
+            commandInputHistory[uuid] = history
+                .map(h => h.command)
+                .filter(cmd => cmd && cmd.toLowerCase() !== 'help');
         }
-    } catch (error) {
-        const consoleOutput = document.getElementById(`console-output-${uuid}`);
-        const currentOutput = consoleOutput.textContent;
-        consoleOutput.textContent = currentOutput + `\n\n> help\n[Connectivity error]`;
-        alert('Error requesting help');
+    } catch (err) {
+        console.error('Error refreshing history:', err);
     }
 }
 
@@ -247,6 +372,7 @@ function closeTab(uuid) {
     if (panel) panel.remove();
 
     openTabs = openTabs.filter(id => id !== uuid);
+    delete lastHistoryHash[uuid];
 
     if (activeTabUuid === uuid) {
         if (openTabs.length > 0) {
@@ -263,24 +389,7 @@ function updateTabOutputs(agents) {
     agents.forEach(agent => {
         if (!openTabs.includes(agent.uuid)) return;
 
-        const consoleOutput = document.getElementById(`console-output-${agent.uuid}`);
-        if (consoleOutput) {
-            const newContent = agent.cmdout || 'Waiting for commands...';
-            if (consoleOutput.textContent === newContent) return;
-
-            const scrollTop = consoleOutput.scrollTop;
-            const scrollHeight = consoleOutput.scrollHeight;
-            const clientHeight = consoleOutput.clientHeight;
-            const wasAtBottom = (scrollHeight - scrollTop - clientHeight) < 30;
-
-            consoleOutput.textContent = newContent;
-
-            if (wasAtBottom) {
-                consoleOutput.scrollTop = consoleOutput.scrollHeight;
-            } else {
-                consoleOutput.scrollTop = scrollTop;
-            }
-        }
+        refreshHistory(agent.uuid);
 
         const online = isAgentOnline(agent.last_seen);
         const dot = document.querySelector(`#tab-btn-${agent.uuid} .tab-btn-dot`);

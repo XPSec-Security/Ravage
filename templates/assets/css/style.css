@@ -191,6 +191,30 @@ body {
     z-index: 5;
 }
 
+.console-history-output {
+    scrollbar-width: thin;
+}
+
+.history-entry {
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(75, 85, 99, 0.15);
+}
+
+.history-entry:last-child {
+    border-bottom: none;
+}
+
+.history-cmd {
+    padding: 2px 0;
+}
+
+.history-output {
+    padding: 2px 0 4px 16px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    line-height: 1.4;
+}
+
 .resize-handle {
     height: 8px;
     cursor: row-resize;

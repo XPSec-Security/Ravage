@@ -202,6 +202,9 @@ function clearAllData() {
     }
     openTabs = [];
     activeTabUuid = null;
+    commandInputHistory = {};
+    historyIndexMap = {};
+    lastHistoryHash = {};
 }
 
 document.addEventListener('DOMContentLoaded', function() {
