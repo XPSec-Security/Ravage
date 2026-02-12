@@ -14,7 +14,7 @@ from servers.admin_server import AdminServer
 from utils.logger import EventLogger
 from crypto.aes_cipher import initialize_cipher_from_config
 
-VERSION = "1.0"
+VERSION = "1.1"
 
 def print_banner():
     banner = r"""
