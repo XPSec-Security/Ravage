@@ -6,11 +6,11 @@
 
 ## Overview
 
-**RAVAGE** is a Command & Control (C2) framework designed for cybersecurity professionals, red teams, and penetration testers. It provides a secure, modular architecture with dynamic configuration, strong encryption, and advanced evasion techniques to simulate realistic attack scenarios.
+**RAVAGE** is a Command & Control (C2) framework designed for cybersecurity professionals, red teams, and penetration testers. It provides a secure, modular architecture with dynamic configuration, strong encryption, and advanced evasion techniques to simulate realistic attack scenarios, created by XPSec Security.
 
 > **Note:** This framework is intended for educational purposes and authorized security testing only. Always obtain proper authorization before conducting security assessments.
 
-## 🔑 Key Features
+## Key Features
 
 - **Modular Architecture**: Clear separation between C2 server, admin interface, and agents
 - **End-to-End Encryption**: Full SSL/TLS support with AES-256 encryption and random IV
@@ -21,7 +21,7 @@
 - **Timing Randomization**: Configurable jitter for agent communication
 - **In-Memory Execution**: Minimized disk operations to reduce forensic footprint
 
-## 🖼️ Project Screenshots
+## Project Screenshots
 
 <div align="center">
   <img src="templates/assets/img_1.png" alt="Dashboard View" width="600"/>
@@ -73,7 +73,7 @@ python main.py
 python3 main.py
 ```
 
-## ⚙️ Configuration in Depth
+## Configuration in Depth
 
 The Ravage framework uses YAML configuration profiles located in the `profiles/` directory to customize all aspects of operation.
 
@@ -134,40 +134,7 @@ listeners:
           - "cf-cache-status: HIT"
 ```
 
-## 🛠️ Usage Guide
-
-### Starting the Framework
-
-```bash
-python main.py
-# or
-python3 main.py
-```
-
-This launches:
-- **Admin Server**: `https://your-ip:2053` (Web dashboard)
-- **C2 Server**: `https://your-ip:443` (Agent communication)
-
-### Access Control
-
-Navigate to the admin dashboard and authenticate with your operator credentials:
-```
-Username: [as configured in profile.yaml]
-Password: [as configured in profile.yaml]
-```
-
-### Agent Deployment
-
-1. **Generate Agent**:
-   - Use the dashboard to generate a customized PowerShell agent
-   - Configure listener, obfuscation level, and connection parameters
-
-2. **Delivery Methods**:
-   - **Direct Execution**: PowerShell one-liner
-   - **Dropper**: PowerShell full dropper
-   - **HTA File**: HTML Application with obfuscation
-
-## 📋 Command Reference
+## Command Reference
 
 | Category | Command | Description | Example |
 |----------|---------|-------------|---------|
@@ -191,7 +158,7 @@ Password: [as configured in profile.yaml]
 | | `smb_exec` | Execute command via SMB | `smb_exec TARGET "whoami"` or `smb_exec TARGET "ipconfig /all" DOMAIN\User:Password` |
 | | `wmi_exec` | Execute command via WMI | `wmi_exec TARGET "whoami"` or `wmi_exec TARGET "ipconfig /all" DOMAIN\User:Password` |
 
-## 📞 Community
+## Community
 
 Join our community for support, updates, and collaboration:
 
