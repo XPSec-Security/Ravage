@@ -1,6 +1,6 @@
 <div align="center">
   <img src="templates/assets/logo.png" alt="RAVAGE Logo" width="150"/>
-  <h3>RAVAGE C2 | PowerShell Weaponized</h3>
+  <h3>RAVAGE Framework | PowerShell Weaponized</h3>
   <p>stay stealth.</p>
 </div>
 
