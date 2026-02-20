@@ -15,7 +15,7 @@ from servers.listener_manager import ListenerManager
 from utils.logger import EventLogger
 from crypto.aes_cipher import initialize_cipher_from_config
 
-VERSION = "1.1"
+VERSION = "1.2"
 
 def print_banner():
     banner = r"""
@@ -24,7 +24,7 @@ def print_banner():
         ▐▀▀▄ ▄█▀▀█ ▐█▐█•▄█▀▀█ ▄█ ▀█▄▐▀▀▪▄
         ▐█•█▌▐█ ▪▐▌ ███ ▐█ ▪▐▌▐█▄▪▐█▐█▄▄▌
         .▀  ▀ ▀  ▀ . ▀   ▀  ▀ ·▀▀▀▀  ▀▀▀
-           Framework 1.1 | stay stealth
+           Framework 1.2 | stay stealth
 """
     print(banner)
 
