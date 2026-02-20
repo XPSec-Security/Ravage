@@ -523,7 +523,7 @@ class C2Server:
     # Run
     # ------------------------------------------------------------------
 
-    def run(self):
+    def run(self, startup_event=None, startup_error=None):
         host = self.listener_config['bind_host']
         port = self.listener_config['bind_port']
 
@@ -536,8 +536,14 @@ class C2Server:
                 self._server = make_server(host, port, self.app, ssl_context=self.ssl_context)
             else:
                 self._server = make_server(host, port, self.app)
+            if startup_event is not None:
+                startup_event.set()
             self._server.serve_forever()
         except Exception as e:
+            if startup_error is not None:
+                startup_error.append(e)
+            if startup_event is not None:
+                startup_event.set()
             self.logger.log_event(f"C2 SERVER - Error on listener '{self.listener_config['id']}': {e}")
         finally:
             self._server = None

