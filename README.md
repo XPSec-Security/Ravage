@@ -8,8 +8,6 @@
 
 **RAVAGE** is a Command & Control (C2) framework designed for cybersecurity professionals, red teams, and penetration testers. It provides a secure, modular architecture with dynamic configuration, strong encryption, and advanced evasion techniques to simulate realistic attack scenarios, created by XPSec Security.
 
-> **Note:** This framework is intended for educational purposes and authorized security testing only. Always obtain proper authorization before conducting security assessments.
-
 ## Key Features
 
 - **Modular Architecture**: Clear separation between C2 server, admin interface, and agents
