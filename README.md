@@ -16,6 +16,8 @@
 - **End-to-End Encryption**: Full SSL/TLS support with AES-256 encryption and random IV
 - **Multi-Layer Obfuscation**: Advanced PowerShell and HTA obfuscation techniques
 - **Interactive Dashboard**: Modern web interface with real-time agent monitoring
+- **Dynamic Listener Management**: Create, start, and delete C2 listeners from the web panel at runtime
+- **Traffic Profiles**: Reusable HTTP traffic patterns (headers, URIs, user-agent) assigned per listener
 - **Secure File Operations**: Encrypted file transfer capabilities
 - **Traffic Masquerading**: Header spoofing and content mimicking
 - **Timing Randomization**: Configurable jitter for agent communication
@@ -24,11 +26,11 @@
 ## Project Screenshots
 
 <div align="center">
-  <img src="templates/assets/img_1.png" alt="Dashboard View" width="600"/>
-  <p><em>Command Execution and Results</em></p>
-  
-  <img src="templates/assets/img_2.png" alt="Command Execution" width="600"/>
-  <p><em>Dashboard Interface - Agent Management</em></p>
+  <img src="images/img_01.png" alt="Dashboard View" width="600"/>
+  <p><em>Graph view</em></p>
+
+  <img src="images/img_02.png" alt="Command Execution" width="600"/>
+  <p><em>List view</em></p>
 </div>
 
 ## Installation Guide
@@ -79,7 +81,7 @@ python main.py
 
 ## Configuration in Depth
 
-The Ravage framework uses YAML configuration profiles located in the `profiles/` directory to customize all aspects of operation.
+The Ravage framework uses a single YAML configuration file located at `profiles/profile.yaml`.
 
 ### Core Configuration (`profile.yaml`)
 
@@ -98,7 +100,7 @@ agent:
   debug: false           # Enable/disable debug mode in agent
 
 operators:
-  - name: "operator1"    # Operator username
+  - name: "operator1"
     credentials:
       password: "secure_password"  # Use strong passwords in production
 
@@ -108,35 +110,68 @@ aes_key:
 
 ssl:
   enabled: true          # Enable SSL/TLS
-  cert_file: "certs/server.crt"  # Path to certificate
-  key_file: "certs/server.key"   # Path to private key
-  ssl_version: "TLSv1_2"         # SSL/TLS version
-  ciphers: "HIGH:!aNULL:!MD5"    # Cipher configuration
+  cert_file: "certs/server.crt"
+  key_file: "certs/server.key"
+  ssl_version: "TLSv1_2"
+  ciphers: "HIGH:!aNULL:!MD5"
 
-listeners:
-  - id: "main_listener"  # Unique listener identifier
-    profile:
-      description: "Default C2 listener"
-      bind:
-        host: "0.0.0.0"  # Agent listener binding address
-        port: 443        # Agent listener port
-        protocol: "https"  # Communication protocol
-      upstream:
-        hosts:
-          - "your-domain.com"  # Domain (or ip) for agent communications
-      http:
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"      # Agent user-agent
-        uris:
-          - "/account/login"    # Agent communication endpoint
-          - "/search/?q=rvge"   # Dropper delivery endpoint
-        request_headers:        # Custom request headers
-          - "Accept: */*"
-          - "Referer: https://your-domain.com/"
-        response_headers:       # Custom response headers
-          - "content-type: text/html; charset=utf-8"
-          - "server: ESF"
-          - "cf-cache-status: HIT"
+# Traffic profiles — define HTTP traffic patterns reused by listeners
+profiles:
+  - id: "default"
+    description: "Default profile"
+    http:
+      user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+      uris:
+        - "/account/login"    # Agent communication endpoint
+        - "/search/?q=rvge"   # Dropper delivery endpoint
+      request_headers:
+        - "Accept: */*"
+        - "Referer: https://google.com/"
+      response_headers:
+        - "content-type: text/html; charset=utf-8"
+        - "server: cloudflare"
+        - "cf-cache-status: HIT"
 ```
+
+### Traffic Profiles
+
+Profiles define the HTTP traffic pattern for a listener. You can define as many profiles as needed and assign them to different listeners via the web panel. Three built-in profiles are included in `profile.yaml.example`:
+
+| Profile ID | Description |
+|------------|-------------|
+| `default` | Generic HTTP traffic with Cloudflare-like response headers |
+| `youtube` | Mimics YouTube video browsing traffic |
+| `teams` | Mimics Microsoft Teams API traffic |
+
+## Listener Management
+
+Listeners are created and managed at runtime through the **web dashboard** (Listeners tab). No restart is required. Each listener is independently configurable with the following fields:
+
+| Field | Description |
+|-------|-------------|
+| **Name** | Friendly label for the listener |
+| **Bind Host** | IP address the C2 server binds to (typically `0.0.0.0`) |
+| **Bind Port** | Port the C2 server listens on |
+| **Protocol** | `http` or `https` |
+| **Traffic Profile** | Profile ID from `profile.yaml` (controls URIs, headers, user-agent) |
+| **Upstream Host** | Value placed in the HTTP `Host` header by the agent (e.g. `cdn.microsoft.com`) |
+| **External Host** | Public domain or IP the agent connects to (e.g. `c2.example.com` or your redirector IP) |
+
+### Host Field Separation
+
+Ravage cleanly separates three network roles to support redirector and CDN-fronting setups:
+
+```
+Agent  ──────────────────────►  External Host : Bind Port   (TCP connection target)
+                                     │
+                                     ▼
+                              C2 Server listens on Bind Host : Bind Port
+                              HTTP Host header = Upstream Host
+```
+
+- **Bind Host / Bind Port** — where the C2 process listens on the server
+- **External Host** — the IP or domain the agent and dropper use to reach the C2 (redirector, CDN, or direct IP)
+- **Upstream Host** — value injected into the HTTP `Host` header by the agent (used for domain fronting or CDN routing)
 
 ## Command Reference
 

@@ -113,10 +113,10 @@ function createConsolePanel(uuid, agent) {
                         Console
                     </span>
                     <div class="flex items-center gap-2">
-                        <button onclick="clearConsoleHistory('${uuid}')" class="text-xs bg-gray-600 hover:bg-gray-500 px-2 py-1 rounded transition-all duration-200" title="Clear console">
+                        <button onclick="clearConsoleHistory('${uuid}')" class="text-xs text-white bg-gray-600 hover:bg-gray-500 px-2 py-1 rounded transition-all duration-200" title="Clear console">
                             Clear
                         </button>
-                        <button onclick="sendQuickHelp('${uuid}')" class="text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded transition-all duration-200" title="Show commands (F1 or Ctrl+H)">
+                        <button onclick="sendQuickHelp('${uuid}')" class="text-xs text-white bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded transition-all duration-200" title="Show commands (F1 or Ctrl+H)">
                             Help
                         </button>
                     </div>

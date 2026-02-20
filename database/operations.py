@@ -245,7 +245,7 @@ class AgentDatabase:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute('''
-            SELECT uuid, hostname, username, domain, admin, pid, infected, last_seen, cmdout 
+            SELECT uuid, hostname, username, domain, admin, pid, infected, last_seen, cmdout
             FROM agents WHERE uuid = ?
         ''', (uuid,))
         row = cursor.fetchone()
@@ -263,3 +263,95 @@ class AgentDatabase:
                 "cmdout": row[8]
             }
         return None
+
+    # -------------------------
+    # Listener CRUD operations
+    # -------------------------
+
+    def create_listener(self, listener_data):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO listeners (id, name, bind_host, bind_port, protocol, profile_id, upstream_host, external_host, created_at, active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+        ''', (
+            listener_data['id'],
+            listener_data['name'],
+            listener_data.get('bind_host', '0.0.0.0'),
+            listener_data['bind_port'],
+            listener_data.get('protocol', 'http'),
+            listener_data['profile_id'],
+            listener_data.get('upstream_host', 'localhost'),
+            listener_data.get('external_host', 'localhost'),
+            listener_data['created_at'],
+        ))
+        conn.commit()
+        conn.close()
+
+    def get_all_listeners(self):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT id, name, bind_host, bind_port, protocol, profile_id, upstream_host, external_host, created_at, active
+            FROM listeners ORDER BY created_at ASC
+        ''')
+        listeners = []
+        for row in cursor.fetchall():
+            listeners.append({
+                'id': row[0],
+                'name': row[1],
+                'bind_host': row[2],
+                'bind_port': row[3],
+                'protocol': row[4],
+                'profile_id': row[5],
+                'upstream_host': row[6],
+                'external_host': row[7],
+                'created_at': row[8],
+                'active': row[9],
+            })
+        conn.close()
+        return listeners
+
+    def get_listener_by_id(self, listener_id):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT id, name, bind_host, bind_port, protocol, profile_id, upstream_host, external_host, created_at, active
+            FROM listeners WHERE id = ?
+        ''', (listener_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            return {
+                'id': row[0],
+                'name': row[1],
+                'bind_host': row[2],
+                'bind_port': row[3],
+                'protocol': row[4],
+                'profile_id': row[5],
+                'upstream_host': row[6],
+                'external_host': row[7],
+                'created_at': row[8],
+                'active': row[9],
+            }
+        return None
+
+    def delete_listener(self, listener_id):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM listeners WHERE id = ?', (listener_id,))
+        deleted = cursor.rowcount > 0
+        conn.commit()
+        conn.close()
+        return deleted
+
+    def listener_port_in_use(self, port, exclude_id=None):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        if exclude_id:
+            cursor.execute('SELECT id FROM listeners WHERE bind_port = ? AND id != ?', (port, exclude_id))
+        else:
+            cursor.execute('SELECT id FROM listeners WHERE bind_port = ?', (port,))
+        row = cursor.fetchone()
+        conn.close()
+        return row is not None

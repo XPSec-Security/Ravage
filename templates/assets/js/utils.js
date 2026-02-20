@@ -132,9 +132,12 @@ function openAgentGenerator() {
     const modal = document.getElementById('agentGeneratorModal');
     modal.classList.remove('hidden');
     modal.classList.add('flex');
-    
-    document.getElementById('serverIP').value = '';
-    document.getElementById('generatedCode').textContent = 'Enter the server IP/Host and click "Generate Dropper" to get the PowerShell code';
+
+    document.getElementById('generatedCode').textContent = 'Select a listener and click "Generate Dropper" to get the PowerShell code';
+
+    if (typeof loadListenerDropdown === 'function') {
+        loadListenerDropdown();
+    }
     
     const onelinerBtn = document.getElementById('generateOnelinerBtn');
     const htaBtn = document.getElementById('generateHTABtn');
@@ -160,26 +163,27 @@ function closeAgentGenerator() {
 }
 
 async function generateDropper() {
-    const serverIP = document.getElementById('serverIP').value.trim();
+    const listenerSelect = document.getElementById('dropperListenerSelect');
+    const listenerId = listenerSelect ? listenerSelect.value : '';
     const generateBtn = document.getElementById('generateDropperBtn');
     const codeOutput = document.getElementById('generatedCode');
     const onelinerBtn = document.getElementById('generateOnelinerBtn');
     const htaBtn = document.getElementById('generateHTABtn');
-    
-    if (!serverIP) {
-        alert('Please enter the server IP/Host');
+
+    if (!listenerId) {
+        alert('Please select a listener. Create one from the Listeners panel first.');
         return;
     }
-    
+
     const originalText = generateBtn.innerHTML;
     generateBtn.disabled = false;
-    
+
     codeOutput.textContent = '# Connecting to server to generate dropper...';
     onelinerBtn.style.display = 'none';
     htaBtn.style.display = 'none';
-    
+
     try {
-        const response = await fetch(`/dropper/${serverIP}`);
+        const response = await fetch(`/dropper/${listenerId}`);
         
         if (response.status === 401) {
             throw new Error('Not authorized - Please login again');
@@ -200,7 +204,7 @@ async function generateDropper() {
         
         onelinerBtn.style.display = 'block';
         
-        showDropperSuccess(serverIP);
+        showDropperSuccess(listenerId);
         
     } catch (error) {
         codeOutput.textContent = `# Error generating dropper: ${error.message}
@@ -365,7 +369,7 @@ function initializeObfuscationSlider() {
     }
 }
 
-function showDropperSuccess(serverIP) {
+function showDropperSuccess(listenerId) {
     const notification = document.createElement('div');
     notification.className = 'fixed top-4 right-4 z-50 bg-green-900 border border-green-500 text-green-300 px-4 py-3 rounded-lg text-sm shadow-lg transform transition-all duration-300 translate-x-full';
     notification.innerHTML = `
@@ -375,7 +379,7 @@ function showDropperSuccess(serverIP) {
             </svg>
             <div>
                 <div class="font-bold">Dropper Generated</div>
-                <div class="text-xs opacity-75">Server: ${serverIP}</div>
+                <div class="text-xs opacity-75">Listener: ${listenerId}</div>
             </div>
         </div>
     `;

