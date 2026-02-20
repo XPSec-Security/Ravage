@@ -115,8 +115,9 @@
         </div>
       </div>
     </div>
-    <div class="flex h-screen gap-6 overflow-hidden">
-      <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+    <div class="flex flex-col h-screen overflow-hidden">
+      <div class="flex gap-6 flex-shrink-0">
+        <div class="flex-1 min-w-0 overflow-hidden">
         <div id="agents-section" class="floating-window p-4 flex flex-col overflow-hidden" style="height: 45vh; min-height: 120px;">
           <div class="flex justify-between items-center mb-3">
             <h2 class="text-2xl font-bold text-green-400 flex items-center gap-2">
@@ -261,26 +262,27 @@
             </div>
           </div>
         </div>
-        <div id="resize-handle" class="resize-handle flex-shrink-0"><span></span></div>
-        <div id="interact-section" class="flex-1 flex flex-col overflow-hidden">
-          <div id="tabs-bar" class="flex items-center gap-1 px-2 overflow-x-auto flex-shrink-0 tab-bar-container">
+        </div>
+        <div id="event-log-panel" class="w-80 floating-window p-6 flex flex-col overflow-hidden">
+          <div class="flex-shrink-0 mb-4">
+            <h2 class="text-2xl font-bold text-blue-400 flex items-center gap-2">
+              <div class="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div> Event Log
+            </h2>
           </div>
-          <div id="tabs-content" class="flex-1 flex flex-col overflow-hidden relative">
-            <div id="tabs-placeholder" class="text-center text-gray-400 mt-8 p-8 floating-window">
-              <p class="text-lg">Click "Interact" in the table to open the agent's interface</p>
-              <p class="text-sm mt-2 opacity-75">Agent interfaces will appear here as independent windows</p>
-            </div>
+          <div class="flex-1 overflow-y-auto bg-black bg-opacity-50 rounded-lg p-4 border border-gray-700">
+            <div class="text-sm space-y-1" id="eventLog"></div>
           </div>
         </div>
       </div>
-      <div class="w-80 floating-window p-6 flex flex-col" style="max-height: 594px;">
-        <div class="flex-shrink-0 mb-4">
-          <h2 class="text-2xl font-bold text-blue-400 flex items-center gap-2">
-            <div class="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div> Event Log
-          </h2>
+      <div id="resize-handle" class="resize-handle flex-shrink-0"><span></span></div>
+      <div id="interact-section" class="flex-1 flex flex-col overflow-hidden min-h-0">
+        <div id="tabs-bar" class="flex items-center gap-1 px-2 overflow-x-auto flex-shrink-0 tab-bar-container">
         </div>
-        <div class="flex-1 overflow-y-auto bg-black bg-opacity-50 rounded-lg p-4 border border-gray-700" style="max-height: 500px;">
-          <div class="text-sm space-y-1" id="eventLog"></div>
+        <div id="tabs-content" class="flex-1 flex flex-col overflow-hidden relative">
+          <div id="tabs-placeholder" class="text-center text-gray-400 mt-8 p-8 floating-window">
+            <p class="text-lg">Click "Interact" in the table to open the agent's interface</p>
+            <p class="text-sm mt-2 opacity-75">Agent interfaces will appear here as independent windows</p>
+          </div>
         </div>
       </div>
     </div>

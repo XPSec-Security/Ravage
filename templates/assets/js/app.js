@@ -116,10 +116,19 @@ function initializeApplication() {
     }
 }
 
+function syncEventLogHeight() {
+    const agentsSection = document.getElementById('agents-section');
+    const eventLogPanel = document.getElementById('event-log-panel');
+    if (!agentsSection || !eventLogPanel) return;
+    eventLogPanel.style.height = agentsSection.offsetHeight + 'px';
+}
+
 function initResizeHandle() {
     const handle = document.getElementById('resize-handle');
     const agentsSection = document.getElementById('agents-section');
     if (!handle || !agentsSection) return;
+
+    syncEventLogHeight();
 
     let isDragging = false;
     let startY, startHeight;
@@ -139,6 +148,7 @@ function initResizeHandle() {
         const delta = e.clientY - startY;
         const newHeight = Math.max(80, startHeight + delta);
         agentsSection.style.height = newHeight + 'px';
+        syncEventLogHeight();
     });
 
     document.addEventListener('mouseup', () => {
@@ -148,6 +158,8 @@ function initResizeHandle() {
         document.body.style.cursor = '';
         document.body.style.userSelect = '';
     });
+
+    window.addEventListener('resize', syncEventLogHeight);
 }
 
 function showErrorMessage(message) {
