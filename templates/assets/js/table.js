@@ -62,7 +62,7 @@ function renderFilteredTable(agents) {
         const row = document.createElement('tr');
         const hasFilter = tableFilters.search || tableFilters.status !== 'all' || tableFilters.domain !== 'all' || tableFilters.admin !== 'all';
         row.innerHTML = `
-            <td colspan="11" class="px-4 py-8 text-center text-gray-400">
+            <td colspan="12" class="px-4 py-8 text-center text-gray-400">
                 ${hasFilter ? 'No agents match current filters' : 'No agents connected'}
             </td>
         `;
@@ -85,7 +85,7 @@ function renderFilteredTable(agents) {
             const onlineCount = groups[domain].filter(a => isAgentOnline(a.last_seen)).length;
             const totalDomain = groups[domain].length;
             headerRow.innerHTML = `
-                <td colspan="10" class="px-4 py-2 bg-gray-800 border-b border-gray-600">
+                <td colspan="11" class="px-4 py-2 bg-gray-800 border-b border-gray-600">
                     <div class="flex items-center gap-3">
                         <span class="text-sm font-bold text-blue-400">${domain}</span>
                         <span class="text-xs text-gray-400 bg-gray-700 px-2 py-0.5 rounded-full">${totalDomain} agents</span>
@@ -281,6 +281,9 @@ function createAgentRow(agent) {
             <span class="font-semibold text-white">${agent.hostname || 'N/A'}</span>
         </td>
         <td class="px-4 py-3">
+            <span class="text-gray-300 text-xs">${agent.os || 'N/A'}</span>
+        </td>
+        <td class="px-4 py-3">
             <span class="text-gray-300">${agent.username || 'N/A'}</span>
         </td>
         <td class="px-4 py-3">
@@ -376,7 +379,7 @@ async function deleteAgent(uuid, hostname) {
                     if (tbody.children.length === 0) {
                         const row = document.createElement('tr');
                         row.innerHTML = `
-                            <td colspan="11" class="px-4 py-8 text-center text-gray-400">
+                            <td colspan="12" class="px-4 py-8 text-center text-gray-400">
                                 No agents connected
                             </td>
                         `;

