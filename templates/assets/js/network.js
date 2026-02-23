@@ -286,12 +286,15 @@ function addAgentNode(group, node, index) {
         <text x="${node.x}" y="${node.y + 48}" text-anchor="middle" fill="#9ca3af" font-size="8">${node.username}</text>
     `;
 
-    agentGroup.addEventListener('mousedown', (e) => startDrag(e, index));
+    agentGroup.addEventListener('mousedown', (e) => { if (e.button !== 2) startDrag(e, index); });
     agentGroup.addEventListener('click', (e) => {
         if (!isDragging) {
             openTab(node.id);
             switchView('table');
         }
+    });
+    agentGroup.addEventListener('contextmenu', (e) => {
+        showAgentContextMenu(e, node.id, node.hostname || 'Unknown');
     });
 
     group.appendChild(agentGroup);

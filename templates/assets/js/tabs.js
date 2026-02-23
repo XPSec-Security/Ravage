@@ -102,6 +102,12 @@ function createConsolePanel(uuid, agent) {
                     class="px-3 py-1 text-sm text-gray-400 hover:text-gray-300">
                     Files
                 </button>
+                <button
+                    onclick="switchAgentTab('${uuid}', 'processes')"
+                    id="processes-tab-btn-${uuid}"
+                    class="px-3 py-1 text-sm text-gray-400 hover:text-gray-300">
+                    Processes
+                </button>
             </div>
         </div>
 
@@ -149,7 +155,7 @@ function createConsolePanel(uuid, agent) {
                         Screenshot Viewer
                     </span>
                     <button
-                        onclick="checkExistingScreenshot('${uuid}')"
+                        onclick="refreshScreenshot('${uuid}')"
                         class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition-all duration-200 flex items-center gap-1">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
@@ -171,6 +177,12 @@ function createConsolePanel(uuid, agent) {
                 <div id="file-manager-root-${uuid}" class="flex-1 flex flex-col overflow-hidden"></div>
             </div>
         </div>
+
+        <div id="processes-content-${uuid}" class="hidden flex-1 flex flex-col overflow-hidden">
+            <div class="bg-black rounded-lg border border-gray-600 overflow-hidden shadow-lg flex-1 flex flex-col">
+                <div id="process-list-root-${uuid}" class="flex-1 flex flex-col overflow-hidden"></div>
+            </div>
+        </div>
     `;
 
     setTimeout(() => {
@@ -179,6 +191,7 @@ function createConsolePanel(uuid, agent) {
     }, 100);
 
     setTimeout(() => initFileManager(uuid), 50);
+    setTimeout(() => initProcessList(uuid), 50);
 
     return panel;
 }
@@ -399,6 +412,7 @@ function closeTab(uuid) {
     openTabs = openTabs.filter(id => id !== uuid);
     delete lastHistoryHash[uuid];
     delete fileManagerState[uuid];
+    delete processListState[uuid];
 
     if (activeTabUuid === uuid) {
         if (openTabs.length > 0) {

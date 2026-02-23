@@ -68,6 +68,76 @@ document.head.insertAdjacentHTML('beforeend', `
 let currentAgents = {};
 let currentView = 'table';
 
+// ===== AGENT CONTEXT MENU =====
+
+document.addEventListener('DOMContentLoaded', () => {
+    const menu = document.createElement('div');
+    menu.id = 'agentContextMenu';
+    menu.style.cssText = 'display:none;position:fixed;z-index:9999;min-width:180px;';
+    menu.className = 'bg-gray-800 border border-gray-600 rounded-lg shadow-2xl py-1 select-none';
+    menu.innerHTML = `
+        <div id="ctxMenuAgentLabel" class="px-3 py-1.5 text-xs text-gray-400 border-b border-gray-700 truncate font-mono"></div>
+        <button onclick="ctxMenuInteract()" class="w-full text-left px-3 py-2 text-sm text-gray-200 hover:bg-gray-700 flex items-center gap-2 transition-colors">
+            <svg class="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M2 5a2 2 0 012-2h12a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V5zm3.293 1.293a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 01-1.414-1.414L7.586 10 5.293 7.707a1 1 0 010-1.414zM11 12a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/></svg>
+            Interact
+        </button>
+        <div class="border-t border-gray-700 my-1"></div>
+        <button onclick="ctxMenuRemove()" class="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-gray-700 flex items-center gap-2 transition-colors">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+            Remove
+        </button>
+    `;
+    document.body.appendChild(menu);
+
+    document.addEventListener('click', hideAgentContextMenu);
+    document.addEventListener('contextmenu', (e) => {
+        if (!e.target.closest('#agentContextMenu')) hideAgentContextMenu();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') hideAgentContextMenu();
+    });
+});
+
+let _ctxAgent = null;
+
+function showAgentContextMenu(e, uuid, hostname) {
+    e.preventDefault();
+    e.stopPropagation();
+    _ctxAgent = { uuid, hostname };
+
+    const menu = document.getElementById('agentContextMenu');
+    document.getElementById('ctxMenuAgentLabel').textContent = hostname || uuid.substring(0, 8);
+
+    menu.style.display = 'block';
+
+    const x = e.clientX, y = e.clientY;
+    const mw = menu.offsetWidth || 180;
+    const mh = menu.offsetHeight || 90;
+    menu.style.left = (x + mw > window.innerWidth ? x - mw : x) + 'px';
+    menu.style.top  = (y + mh > window.innerHeight ? y - mh : y) + 'px';
+}
+
+function hideAgentContextMenu() {
+    const menu = document.getElementById('agentContextMenu');
+    if (menu) menu.style.display = 'none';
+    _ctxAgent = null;
+}
+
+function ctxMenuInteract() {
+    if (!_ctxAgent) return;
+    const { uuid } = _ctxAgent;
+    hideAgentContextMenu();
+    openTab(uuid);
+    if (currentView !== 'table') switchView('table');
+}
+
+function ctxMenuRemove() {
+    if (!_ctxAgent) return;
+    const { uuid, hostname } = _ctxAgent;
+    hideAgentContextMenu();
+    deleteAgent(uuid, hostname);
+}
+
 function formatTime(timestamp) {
     if (!timestamp) return 'N/A';
     const date = new Date(timestamp);

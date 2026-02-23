@@ -606,8 +606,23 @@ function pkill {
 
 function plist {
     try {
-        $procs = Get-Process | Sort-Object Id
-        return ($procs | Select-Object Id, ProcessName | Format-Table -AutoSize | Out-String)
+        $wmiMap = @{}
+        try {
+            Get-WmiObject Win32_Process | ForEach-Object {
+                $o = $_.GetOwner()
+                $wmiMap[[int]$_.ProcessId] = if ($o.ReturnValue -eq 0 -and $o.User) { $o.User } else { '' }
+            }
+        } catch {}
+        $lines = [System.Collections.Generic.List[string]]::new()
+        $lines.Add('PID|Name|User|Arch')
+        foreach ($p in (Get-Process | Sort-Object Id)) {
+            $arch = try {
+                if ($p.MainModule.FileName -match 'SysWOW64') { 'x86' } else { 'x64' }
+            } catch { 'N/A' }
+            $user = if ($wmiMap.ContainsKey($p.Id)) { $wmiMap[$p.Id] } else { '' }
+            $lines.Add("$($p.Id)|$($p.ProcessName)|$user|$arch")
+        }
+        return ($lines -join "`n")
     } catch {
         return "[!] Error listing processes: $_"
     }

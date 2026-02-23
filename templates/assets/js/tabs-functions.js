@@ -1,5 +1,5 @@
 function switchAgentTab(uuid, tabName) {
-    const containers = ['console', 'screenshot', 'files'];
+    const containers = ['console', 'screenshot', 'files', 'processes'];
 
     containers.forEach(tab => {
         const content = document.getElementById(`${tab}-content-${uuid}`);
@@ -40,38 +40,37 @@ function checkExistingScreenshot(uuid) {
 }
 
 function refreshScreenshot(uuid) {
-    console.log(`Requesting screenshot from agent ${uuid}`);
-    
-    try {
-        const formData = new FormData();
-        formData.append('command', 'screenshot');
+    const screenshotDiv = document.getElementById(`screenshot-content-${uuid}`).querySelector('.flex');
+    screenshotDiv.innerHTML = `
+        <div class="text-center text-gray-500 w-full">
+            <div class="animate-spin inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mb-4"></div>
+            <p>Sending screenshot command...</p>
+        </div>
+    `;
 
-        const screenshotDiv = document.getElementById(`screenshot-content-${uuid}`).querySelector('.flex');
-        screenshotDiv.innerHTML = `
-            <div class="text-center text-gray-500 w-full">
-                <div class="animate-spin inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mb-4"></div>
-                <p>Taking screenshot...</p>
-                <p class="text-sm mt-2">This may take a few seconds</p>
-            </div>
-        `;
-
-        fetch(`${CONFIG.API.COMMAND}/${uuid}`, {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => {
-            if (response.ok) {
-                console.log("Screenshot command sent successfully, starting polling...");
-                startScreenshotPolling(uuid);
-            } else {
-                throw new Error('Error sending screenshot command');
-            }
+    fetch(`${CONFIG.API.HISTORY}/${uuid}`)
+        .then(r => r.json())
+        .then(data => {
+            const baseLen = (data.history || []).length;
+            const formData = new FormData();
+            formData.append('command', 'screenshot');
+            return fetch(`${CONFIG.API.COMMAND}/${uuid}`, { method: 'POST', body: formData })
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    screenshotDiv.innerHTML = `
+                        <div class="text-center text-gray-500 w-full">
+                            <div class="animate-spin inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mb-4"></div>
+                            <p>Waiting for agent to capture screen...</p>
+                        </div>
+                    `;
+                    screenshotPollHistory(uuid, baseLen, 0);
+                });
         })
         .catch(error => {
-            console.error('Error taking screenshot:', error);
+            console.error('Error requesting screenshot:', error);
             screenshotDiv.innerHTML = `
                 <div class="text-center text-red-500 w-full">
-                    <p>Error taking screenshot</p>
+                    <p>Error sending screenshot command</p>
                     <p class="text-sm mt-2">${error.message}</p>
                     <div class="mt-4">
                         <button onclick="refreshScreenshot('${uuid}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition-all duration-200">
@@ -81,9 +80,40 @@ function refreshScreenshot(uuid) {
                 </div>
             `;
         });
-    } catch (error) {
-        console.error('Error initiating screenshot:', error);
+}
+
+function screenshotPollHistory(uuid, baseLen, attempt) {
+    const MAX_ATTEMPTS = 30;
+    if (attempt >= MAX_ATTEMPTS) {
+        const screenshotDiv = document.getElementById(`screenshot-content-${uuid}`).querySelector('.flex');
+        screenshotDiv.innerHTML = `
+            <div class="text-center text-red-500 w-full">
+                <p>Screenshot timed out</p>
+                <p class="text-sm mt-2">Agent did not respond in time</p>
+                <div class="mt-4">
+                    <button onclick="refreshScreenshot('${uuid}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition-all duration-200">
+                        Try Again
+                    </button>
+                </div>
+            </div>
+        `;
+        return;
     }
+
+    setTimeout(() => {
+        fetch(`${CONFIG.API.HISTORY}/${uuid}`)
+            .then(r => r.json())
+            .then(data => {
+                const history = data.history || [];
+                const entry = history.slice(baseLen).find(h => h.command === 'screenshot' && h.status === 'completed');
+                if (entry) {
+                    startScreenshotPolling(uuid);
+                } else {
+                    screenshotPollHistory(uuid, baseLen, attempt + 1);
+                }
+            })
+            .catch(() => screenshotPollHistory(uuid, baseLen, attempt + 1));
+    }, 2000);
 }
 
 function startScreenshotPolling(uuid) {
@@ -106,7 +136,7 @@ function startScreenshotPolling(uuid) {
                 screenshotDiv.innerHTML = `
                     <div class="w-full h-full flex flex-col">
                         <div class="flex justify-between items-center bg-gray-800 p-2 mb-2 rounded">
-                            <button onclick="checkExistingScreenshot('${uuid}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition-all duration-200 flex items-center gap-1" title="Refresh screenshot">
+                            <button onclick="refreshScreenshot('${uuid}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition-all duration-200 flex items-center gap-1" title="Refresh screenshot">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                                     <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
                                 </svg>
@@ -711,5 +741,298 @@ function fmPromptMkdir(uuid) {
         })
         .catch(() => {
             if (statusBar) statusBar.textContent = 'Error sending mkdir command';
+        });
+}
+
+// ===== PROCESS LIST =====
+
+let processListState = {};
+
+function initProcessList(uuid) {
+    const root = document.getElementById(`process-list-root-${uuid}`);
+    if (!root) return;
+
+    if (!processListState[uuid]) {
+        processListState[uuid] = { loading: false, filter: '', sortCol: 'pid', sortDir: 1 };
+    }
+
+    root.innerHTML = `
+        <div class="bg-gray-800 px-3 py-2 border-b border-gray-600 flex items-center gap-2 flex-shrink-0">
+            <button onclick="plRefresh('${uuid}')" class="fm-action-btn" title="Refresh process list">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/></svg>
+            </button>
+            <input
+                type="text"
+                id="pl-filter-${uuid}"
+                class="fm-path-input flex-1"
+                placeholder="Filter by name or PID..."
+                oninput="plApplyFilter('${uuid}')"
+            />
+        </div>
+        <div id="pl-list-${uuid}" class="flex-1 overflow-y-auto fm-file-list">
+            <div class="flex items-center justify-center h-full text-gray-500 text-sm">
+                <div class="text-center">
+                    <p>Click Refresh to list running processes</p>
+                </div>
+            </div>
+        </div>
+        <div id="pl-status-${uuid}" class="bg-gray-800 px-3 py-1 text-xs text-gray-500 border-t border-gray-600 flex-shrink-0 fm-statusbar">
+            Ready
+        </div>
+    `;
+}
+
+function plRefresh(uuid) {
+    const state = processListState[uuid];
+    if (!state || state.loading) return;
+
+    state.loading = true;
+    state.lastProcs = null;
+
+    const list = document.getElementById(`pl-list-${uuid}`);
+    const statusBar = document.getElementById(`pl-status-${uuid}`);
+
+    if (list) {
+        list.innerHTML = `
+            <div class="flex items-center justify-center h-full text-gray-500">
+                <div class="text-center">
+                    <div class="animate-spin inline-block w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full mb-2"></div>
+                    <p class="text-sm">Fetching process list...</p>
+                </div>
+            </div>
+        `;
+    }
+    if (statusBar) statusBar.textContent = 'Sending plist command...';
+
+    // Record current history size so we only pick up the new response
+    fetch(`${CONFIG.API.HISTORY}/${uuid}`)
+        .then(r => r.json())
+        .then(data => {
+            state.historyBaseLen = (data.history || []).length;
+
+            const formData = new FormData();
+            formData.append('command', 'plist');
+            return fetch(`${CONFIG.API.COMMAND}/${uuid}`, { method: 'POST', body: formData });
+        })
+        .then(response => {
+            if (response.ok) {
+                plPollForOutput(uuid);
+            } else {
+                throw new Error('Failed to send plist command');
+            }
+        })
+        .catch(err => {
+            state.loading = false;
+            if (list) list.innerHTML = `<div class="flex items-center justify-center h-full text-red-400 text-sm"><p>Error: ${escapeHtml(err.message)}</p></div>`;
+            if (statusBar) statusBar.textContent = 'Error';
+        });
+}
+
+function plPollForOutput(uuid, attempt) {
+    attempt = attempt || 0;
+    const maxAttempts = 40;
+    const state = processListState[uuid];
+    if (!state) return;
+
+    if (attempt >= maxAttempts) {
+        state.loading = false;
+        const list = document.getElementById(`pl-list-${uuid}`);
+        const statusBar = document.getElementById(`pl-status-${uuid}`);
+        if (list) list.innerHTML = `<div class="flex items-center justify-center h-full text-yellow-400 text-sm"><div class="text-center"><p>Timeout waiting for agent</p><button onclick="plRefresh('${uuid}')" class="mt-2 text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded text-white">Retry</button></div></div>`;
+        if (statusBar) statusBar.textContent = 'Timeout';
+        return;
+    }
+
+    fetch(`${CONFIG.API.HISTORY}/${uuid}`)
+        .then(r => r.json())
+        .then(data => {
+            const history = data.history || [];
+            const base = state.historyBaseLen || 0;
+            let found = null;
+            for (let i = history.length - 1; i >= base; i--) {
+                if (history[i] && history[i].command === 'plist' && history[i].output) {
+                    found = history[i];
+                    break;
+                }
+            }
+            if (found && found.output) {
+                state.loading = false;
+                const procs = plParseOutput(found.output);
+                state.lastProcs = procs;
+                state.rawOutput = found.output;
+                plRenderTable(uuid, procs);
+            } else {
+                setTimeout(() => plPollForOutput(uuid, attempt + 1), 500);
+            }
+        })
+        .catch(() => {
+            setTimeout(() => plPollForOutput(uuid, attempt + 1), 500);
+        });
+}
+
+function plParseOutput(output) {
+    if (!output) return [];
+    if (output.startsWith('[!]')) return [];
+
+    const lines = output.trim().split('\n');
+    const procs = [];
+
+    // New pipe-delimited format: PID|Name|User|Arch
+    const headerIdx = lines.findIndex(l => l.trim().startsWith('PID|'));
+    if (headerIdx >= 0) {
+        for (let i = headerIdx + 1; i < lines.length; i++) {
+            const parts = lines[i].trim().split('|');
+            if (parts.length < 2) continue;
+            const pid = parseInt(parts[0], 10);
+            if (!isNaN(pid)) {
+                procs.push({ pid, name: parts[1] || '', user: parts[2] || '', arch: parts[3] || '' });
+            }
+        }
+        return procs;
+    }
+
+    // Legacy Format-Table format: Id ProcessName
+    let headerFound = false, dashFound = false;
+    for (const line of lines) {
+        if (!headerFound) {
+            if (/\bId\b.*\bProcessName\b/.test(line)) headerFound = true;
+            continue;
+        }
+        if (!dashFound) {
+            if (/^[\s\-]+$/.test(line)) dashFound = true;
+            continue;
+        }
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        const match = trimmed.match(/^(\d+)\s+(.+)$/);
+        if (match) procs.push({ pid: parseInt(match[1], 10), name: match[2].trim(), user: '', arch: '' });
+    }
+    return procs;
+}
+
+function plApplyFilter(uuid) {
+    const state = processListState[uuid];
+    if (!state || !state.lastProcs) return;
+
+    const filterEl = document.getElementById(`pl-filter-${uuid}`);
+    state.filter = filterEl ? filterEl.value.toLowerCase() : '';
+    plRenderTable(uuid, state.lastProcs);
+}
+
+function plRenderTable(uuid, procs) {
+    const list = document.getElementById(`pl-list-${uuid}`);
+    const statusBar = document.getElementById(`pl-status-${uuid}`);
+    const state = processListState[uuid];
+
+    if (!list || !state) return;
+
+    const filter = state.filter || '';
+    const filtered = filter
+        ? procs.filter(p =>
+            p.name.toLowerCase().includes(filter) ||
+            String(p.pid).includes(filter) ||
+            (p.user || '').toLowerCase().includes(filter))
+        : procs;
+
+    if (filtered.length === 0) {
+        list.innerHTML = `<div class="flex items-center justify-center h-full text-gray-500 text-sm"><p>${filter ? 'No processes match the filter' : 'No processes found'}</p></div>`;
+        if (statusBar) statusBar.textContent = filter ? `0 of ${procs.length} processes` : '0 processes';
+        return;
+    }
+
+    const sortCol = state.sortCol || 'pid';
+    const sortDir = state.sortDir || 1;
+    const sorted = [...filtered].sort((a, b) => {
+        if (sortCol === 'pid')  return (a.pid - b.pid) * sortDir;
+        if (sortCol === 'user') return (a.user || '').localeCompare(b.user || '') * sortDir;
+        if (sortCol === 'arch') return (a.arch || '').localeCompare(b.arch || '') * sortDir;
+        return (a.name || '').localeCompare(b.name || '') * sortDir;
+    });
+
+    const sortIndicator = (col) => {
+        if (state.sortCol !== col) return '<span class="text-gray-700 ml-1">⇅</span>';
+        return state.sortDir === 1 ? '<span class="text-blue-400 ml-1">↑</span>' : '<span class="text-blue-400 ml-1">↓</span>';
+    };
+
+    let html = `
+        <table class="w-full fm-table" style="table-layout:fixed">
+            <colgroup>
+                <col style="width:70px">
+                <col>
+                <col>
+                <col style="width:58px">
+                <col style="width:46px">
+            </colgroup>
+            <thead>
+                <tr class="text-xs text-gray-500 uppercase border-b border-gray-700">
+                    <th class="px-3 py-2 text-right cursor-pointer select-none hover:text-gray-300" onclick="plSort('${uuid}', 'pid')">PID ${sortIndicator('pid')}</th>
+                    <th class="px-3 py-2 text-left cursor-pointer select-none hover:text-gray-300" onclick="plSort('${uuid}', 'name')">Name ${sortIndicator('name')}</th>
+                    <th class="px-3 py-2 text-left cursor-pointer select-none hover:text-gray-300" onclick="plSort('${uuid}', 'user')">User ${sortIndicator('user')}</th>
+                    <th class="px-3 py-2 text-center cursor-pointer select-none hover:text-gray-300" onclick="plSort('${uuid}', 'arch')">Arch ${sortIndicator('arch')}</th>
+                    <th class="px-3 py-2 text-center"></th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    sorted.forEach(proc => {
+        const archClass = proc.arch === 'x86' ? 'text-yellow-400' : proc.arch === 'x64' ? 'text-blue-400' : 'text-gray-500';
+        const safeName = escapeHtml(proc.name).replace(/'/g, "\\'");
+        html += `
+            <tr class="fm-row border-b border-gray-800 hover:bg-gray-800 hover:bg-opacity-60 transition-colors">
+                <td class="px-3 py-1.5 text-right text-xs font-mono text-gray-400">${proc.pid}</td>
+                <td class="px-3 py-1.5 text-sm text-gray-200 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(proc.name)}">${escapeHtml(proc.name)}</td>
+                <td class="px-3 py-1.5 text-xs text-gray-400 overflow-hidden" style="text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(proc.user || '')}">${escapeHtml(proc.user || '')}</td>
+                <td class="px-3 py-1.5 text-center text-xs font-mono font-bold ${archClass}">${escapeHtml(proc.arch || '')}</td>
+                <td class="px-3 py-1.5 text-center">
+                    <button onclick="plKillProcess('${uuid}', ${proc.pid}, '${safeName}')" class="fm-row-action text-gray-500 hover:text-red-400" title="Kill process">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+
+    html += '</tbody></table>';
+    list.innerHTML = html;
+
+    if (statusBar) statusBar.textContent = filter
+        ? `${filtered.length} of ${procs.length} processes`
+        : `${procs.length} processes`;
+}
+
+function plSort(uuid, col) {
+    const state = processListState[uuid];
+    if (!state || !state.lastProcs) return;
+
+    if (state.sortCol === col) {
+        state.sortDir = state.sortDir * -1;
+    } else {
+        state.sortCol = col;
+        state.sortDir = 1;
+    }
+    plRenderTable(uuid, state.lastProcs);
+}
+
+function plKillProcess(uuid, pid, name) {
+    if (!confirm(`Kill process "${name}" (PID: ${pid})?`)) return;
+
+    const statusBar = document.getElementById(`pl-status-${uuid}`);
+    if (statusBar) statusBar.textContent = `Sending kill command for PID ${pid}...`;
+
+    const formData = new FormData();
+    formData.append('command', `pkill ${pid}`);
+
+    fetch(`${CONFIG.API.COMMAND}/${uuid}`, { method: 'POST', body: formData })
+        .then(response => {
+            if (response.ok) {
+                if (statusBar) statusBar.textContent = `Kill sent for PID ${pid} — refreshing...`;
+                setTimeout(() => plRefresh(uuid), 1500);
+            } else {
+                if (statusBar) statusBar.textContent = 'Error sending kill command';
+            }
+        })
+        .catch(() => {
+            if (statusBar) statusBar.textContent = 'Error sending kill command';
         });
 }

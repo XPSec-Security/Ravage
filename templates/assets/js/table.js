@@ -62,7 +62,7 @@ function renderFilteredTable(agents) {
         const row = document.createElement('tr');
         const hasFilter = tableFilters.search || tableFilters.status !== 'all' || tableFilters.domain !== 'all' || tableFilters.admin !== 'all';
         row.innerHTML = `
-            <td colspan="12" class="px-4 py-8 text-center text-gray-400">
+            <td colspan="10" class="px-4 py-8 text-center text-gray-400">
                 ${hasFilter ? 'No agents match current filters' : 'No agents connected'}
             </td>
         `;
@@ -85,7 +85,7 @@ function renderFilteredTable(agents) {
             const onlineCount = groups[domain].filter(a => isAgentOnline(a.last_seen)).length;
             const totalDomain = groups[domain].length;
             headerRow.innerHTML = `
-                <td colspan="11" class="px-4 py-2 bg-gray-800 border-b border-gray-600">
+                <td colspan="10" class="px-4 py-2 bg-gray-800 border-b border-gray-600">
                     <div class="flex items-center gap-3">
                         <span class="text-sm font-bold text-blue-400">${domain}</span>
                         <span class="text-xs text-gray-400 bg-gray-700 px-2 py-0.5 rounded-full">${totalDomain} agents</span>
@@ -303,27 +303,13 @@ function createAgentRow(agent) {
         <td class="px-4 py-3">
             <span class="text-gray-400 text-xs">${formatTime(agent.last_seen)}</span>
         </td>
-        <td class="px-4 py-3">
-            <div class="flex items-center gap-2">
-                <button 
-                    onclick="openTab('${agent.uuid}')" 
-                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
-                >
-                    Interact
-                </button>
-                <button 
-                    onclick="deleteAgent('${agent.uuid}', '${agent.hostname || 'Unknown'}')" 
-                    class="bg-red-600 hover:bg-red-700 text-white px-2 py-2 rounded-lg text-xs font-medium transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center justify-center"
-                    title="Delete Agent"
-                >
-                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
-                    </svg>
-                </button>
-            </div>
-        </td>
     `;
-    
+
+    row.style.cursor = 'default';
+    row.addEventListener('contextmenu', (e) => {
+        showAgentContextMenu(e, agent.uuid, agent.hostname || 'Unknown');
+    });
+
     return row;
 }
 
@@ -335,16 +321,6 @@ async function deleteAgent(uuid, hostname) {
     }
     
     try {
-        const deleteButton = document.querySelector(`#agent-row-${uuid} button[title="Delete Agent"]`);
-        const originalContent = deleteButton.innerHTML;
-        
-        deleteButton.disabled = true;
-        deleteButton.innerHTML = `
-            <svg class="w-4 h-4 animate-spin" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"/>
-            </svg>
-        `;
-        
         const response = await fetch(`/api/agent/${uuid}`, {
             method: 'DELETE',
             headers: {
@@ -379,7 +355,7 @@ async function deleteAgent(uuid, hostname) {
                     if (tbody.children.length === 0) {
                         const row = document.createElement('tr');
                         row.innerHTML = `
-                            <td colspan="12" class="px-4 py-8 text-center text-gray-400">
+                            <td colspan="10" class="px-4 py-8 text-center text-gray-400">
                                 No agents connected
                             </td>
                         `;
@@ -396,13 +372,6 @@ async function deleteAgent(uuid, hostname) {
         
     } catch (error) {
         console.error('Error deleting agent:', error);
-        
-        const deleteButton = document.querySelector(`#agent-row-${uuid} button[title="Delete Agent"]`);
-        if (deleteButton) {
-            deleteButton.disabled = false;
-            deleteButton.innerHTML = originalContent;
-        }
-        
         showDeleteErrorNotification(error.message, hostname);
     }
 }
