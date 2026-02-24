@@ -885,6 +885,6 @@ class AdminServer:
         WSGIRequestHandler.sys_version = ""
 
         if self.ssl_context:
-            self.app.run(host=host, port=port, debug=False, use_reloader=False, ssl_context=self.ssl_context)
+            self.app.run(host=host, port=port, debug=False, use_reloader=False, threaded=True, ssl_context=self.ssl_context)
         else:
-            self.app.run(host=host, port=port, debug=False, use_reloader=False)
+            self.app.run(host=host, port=port, debug=False, use_reloader=False, threaded=True)
