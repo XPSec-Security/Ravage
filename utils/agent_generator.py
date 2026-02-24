@@ -35,6 +35,12 @@ $global:streamHost = "{{STREAM_HOST}}"
 $global:streamPort = {{STREAM_PORT}}
 {{AGENT_HEADERS}}
 
+if ($global:agentProt -eq 'https') {
+    [System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
+    [System.Net.ServicePointManager]::CheckCertificateRevocationList = $false
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+}
+
 Write-AgentDebug "Configuration loaded - URI: $global:agentUri"
 Write-AgentDebug "Protocol: $global:agentProt | Host: $global:agentHost"
 Write-AgentDebug "AES Key Length: $($global:aesKey.Length) characters"

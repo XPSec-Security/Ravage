@@ -83,6 +83,9 @@ class C2Server:
         if not ssl_config.get('enabled', False):
             return None
 
+        if self.listener_config.get('protocol', 'http') != 'https':
+            return None
+
         cert_file = ssl_config.get('cert_file')
         key_file = ssl_config.get('key_file')
 
