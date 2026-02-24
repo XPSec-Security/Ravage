@@ -96,6 +96,7 @@ agent:
   sleep_time: 6          # Time in seconds between agent check-ins
   jitter: 20             # Random timing variation (percent)
   debug: false           # Enable/disable debug mode in agent
+  stream_port: 7331      # TCP port used by screenwatch for live screen streaming
 
 operators:
   - name: "operator1"
@@ -186,14 +187,23 @@ Agent  ──────────────────────►  Ex
 | | `pname` | Find process by name | `pname explorer` |
 | **PowerShell** | `shell` | Execute in isolated runspace | `shell Get-WmiObject Win32_OperatingSystem` |
 | | `execute` | Execute local binary file | `execute C:\path\to\file.exe` |
-| **Recon** | `screenshot` | Capture screen | `screenshot` |
+| **Recon** | `screenshot` | Capture full screen or specific process window | `screenshot` or `screenshot 1234` |
+| | `screenwatch` | Start/stop real-time screen streaming to dashboard | `screenwatch on` / `screenwatch off` |
 | | `who` | Basic user information | `who` |
+| **Task Management** | `jobs` | List or cancel queued tasks (server-side) | `jobs list` / `jobs kill 7` |
 | **Stealth** | `asleep` | Adjust sleep interval | `asleep 10` (10s) |
 | | `exit` | Terminate agent | `exit` |
 | **Lateral Movement** | `make_token` | Create authentication token | `make_token DOMAIN\User:Password` |
 | | `rev2self` | Reset process token to current user | `rev2self` |
 | | `smb_exec` | Execute command via SMB | `smb_exec TARGET "whoami"` or `smb_exec TARGET "ipconfig /all" DOMAIN\User:Password` |
 | | `wmi_exec` | Execute command via WMI | `wmi_exec TARGET "whoami"` or `wmi_exec TARGET "ipconfig /all" DOMAIN\User:Password` |
+
+### Command Notes
+
+- **`screenshot [pid]`** — Omit `pid` for a full virtual-screen capture. Pass a process ID to capture that process's window only (uses `PrintWindow`, works even when the window is minimized or off-screen).
+- **`screenwatch on|off`** — The C2 opens a dedicated TCP port (`stream_port` in `profile.yaml`, default `7331`). The agent connects from a background Runspace and continuously streams JPEG frames. The live feed is visible in the **Live View** tab of the agent panel. Run `screenwatch off` to stop streaming and close the connection.
+- **`jobs list`** — Server-side only. Displays all queued, dispatched, and completed tasks for the agent with their ID, timestamp, operator, and status.
+- **`jobs kill <id>`** — Cancels a queued or in-flight task by its ID before the agent executes it. Has no effect on already-completed tasks.
 
 ## Community
 

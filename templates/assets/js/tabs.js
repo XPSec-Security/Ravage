@@ -108,6 +108,13 @@ function createConsolePanel(uuid, agent) {
                     class="px-3 py-1 text-sm text-gray-400 hover:text-gray-300">
                     Processes
                 </button>
+                <button
+                    onclick="switchAgentTab('${uuid}', 'liveview')"
+                    id="liveview-tab-btn-${uuid}"
+                    class="px-3 py-1 text-sm text-gray-400 hover:text-gray-300 flex items-center gap-1">
+                    <span class="w-2 h-2 rounded-full bg-gray-500" id="liveview-dot-${uuid}"></span>
+                    Live View
+                </button>
             </div>
         </div>
 
@@ -181,6 +188,54 @@ function createConsolePanel(uuid, agent) {
         <div id="processes-content-${uuid}" class="hidden flex-1 flex flex-col overflow-hidden">
             <div class="bg-black rounded-lg border border-gray-600 overflow-hidden shadow-lg flex-1 flex flex-col">
                 <div id="process-list-root-${uuid}" class="flex-1 flex flex-col overflow-hidden"></div>
+            </div>
+        </div>
+
+        <div id="liveview-content-${uuid}" class="hidden flex-1 flex flex-col overflow-hidden">
+            <div class="bg-black rounded-lg border border-gray-600 overflow-hidden shadow-lg flex-1 flex flex-col">
+                <div class="bg-gray-800 px-4 py-2 text-sm text-gray-300 border-b border-gray-600 flex justify-between items-center flex-shrink-0">
+                    <span class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-gray-500" id="liveview-status-dot-${uuid}"></span>
+                        Live View
+                        <span id="liveview-status-${uuid}" class="text-xs text-gray-500 ml-2">Idle</span>
+                    </span>
+                    <div class="flex items-center gap-2">
+                        <button
+                            id="liveview-start-${uuid}"
+                            onclick="startLiveView('${uuid}')"
+                            class="bg-green-700 hover:bg-green-600 text-white px-3 py-1 rounded text-sm transition-all duration-200 flex items-center gap-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>
+                            </svg>
+                            Start Stream
+                        </button>
+                        <button
+                            id="liveview-stop-${uuid}"
+                            onclick="stopLiveView('${uuid}')"
+                            class="hidden bg-red-700 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-all duration-200 flex items-center gap-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"/>
+                            </svg>
+                            Stop Stream
+                        </button>
+                    </div>
+                </div>
+                <div class="flex-1 flex items-center justify-center overflow-hidden bg-black">
+                    <img
+                        id="liveview-img-${uuid}"
+                        src=""
+                        alt=""
+                        style="display:none; max-width:100%; max-height:100%; object-fit:contain;"
+                        onerror="handleLiveViewError('${uuid}')"
+                    />
+                    <div id="liveview-placeholder-${uuid}" class="text-center text-gray-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto mb-4 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                        </svg>
+                        <p class="text-sm">Click Start Stream to begin live screen view</p>
+                        <p class="text-xs mt-1 text-gray-600">Requires agent to be online</p>
+                    </div>
+                </div>
             </div>
         </div>
     `;
@@ -413,6 +468,7 @@ function closeTab(uuid) {
     delete lastHistoryHash[uuid];
     delete fileManagerState[uuid];
     delete processListState[uuid];
+    cleanupLiveView(uuid);
 
     if (activeTabUuid === uuid) {
         if (openTabs.length > 0) {

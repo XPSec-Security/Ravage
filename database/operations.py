@@ -236,6 +236,47 @@ class AgentDatabase:
         conn.close()
         return history
 
+    def get_tasks_for_jobs(self, uuid):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT id, command, status, operator, timestamp
+            FROM command_history
+            WHERE uuid = ?
+            ORDER BY id ASC
+        ''', (uuid,))
+        tasks = []
+        for row in cursor.fetchall():
+            tasks.append({
+                'id': row[0],
+                'command': row[1],
+                'status': row[2],
+                'operator': row[3],
+                'timestamp': row[4],
+            })
+        conn.close()
+        return tasks
+
+    def cancel_task(self, task_id, uuid):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT id, status FROM command_history
+            WHERE id = ? AND uuid = ?
+        ''', (task_id, uuid))
+        row = cursor.fetchone()
+        if not row:
+            conn.close()
+            return False, "Task not found"
+        status = row[1]
+        if status == 'completed':
+            conn.close()
+            return False, "Task already completed"
+        cursor.execute('DELETE FROM command_history WHERE id = ? AND uuid = ?', (task_id, uuid))
+        conn.commit()
+        conn.close()
+        return True, status
+
     def delete_agent_history(self, uuid):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()

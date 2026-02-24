@@ -88,9 +88,15 @@
       ]
     },
     "screenshot": {
-      "description": "Capture and view screen (T1113)",
-      "usage": "screenshot",
-      "parameters": []
+      "description": "Capture full screen or a specific process window by PID (T1113)",
+      "usage": "screenshot [pid]",
+      "parameters": [
+        {
+          "name": "pid",
+          "required": false,
+          "description": "Optional. Process ID to capture that process window only. Omit for full screen."
+        }
+      ]
     },
     "delete": {
       "description": "Remove file or directory (T1485)",
@@ -201,6 +207,28 @@
           "name": "credentials",
           "required": false,
           "description": "Optional. Format DOMAIN\\User:Password. If omitted, uses current/make_token session"
+        }
+      ]
+    },
+    "jobs": {
+      "description": "List or cancel queued tasks (server-side only)",
+      "usage": "jobs list  |  jobs kill <id>",
+      "parameters": [
+        {
+          "name": "subcommand",
+          "required": false,
+          "description": "'list' to show all tasks, 'kill <id>' to cancel a queued/executing task"
+        }
+      ]
+    },
+    "screenwatch": {
+      "description": "Start/stop real-time screen streaming (T1113)",
+      "usage": "screenwatch on|off",
+      "parameters": [
+        {
+          "name": "action",
+          "required": true,
+          "description": "Action: 'on' to start streaming, 'off' to stop"
         }
       ]
     }

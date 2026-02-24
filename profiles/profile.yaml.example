@@ -10,6 +10,7 @@ agent:
   sleep_time: 6          # Time in seconds between agent check-ins
   jitter: 20             # Random timing variation (percent)
   debug: false           # Enable/disable debug mode in agent
+  stream_port: 7331      # TCP port for live screen streaming (screenwatch command)
 
 operators:
   - name: "operator1"    # Operator username

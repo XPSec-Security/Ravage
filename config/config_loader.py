@@ -139,5 +139,9 @@ class ConfigLoader:
         agent_config = self.config.get('agent', {})
         return agent_config.get('debug', False)
 
+    def get_stream_port(self):
+        agent_config = self.config.get('agent', {})
+        return agent_config.get('stream_port', 7331)
+
     def is_ssl_enabled(self):
         return self.get_global_ssl_config().get('enabled', False)

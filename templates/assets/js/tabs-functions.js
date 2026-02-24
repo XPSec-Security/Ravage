@@ -1,5 +1,5 @@
 function switchAgentTab(uuid, tabName) {
-    const containers = ['console', 'screenshot', 'files', 'processes'];
+    const containers = ['console', 'screenshot', 'files', 'processes', 'liveview'];
 
     containers.forEach(tab => {
         const content = document.getElementById(`${tab}-content-${uuid}`);
@@ -40,46 +40,7 @@ function checkExistingScreenshot(uuid) {
 }
 
 function refreshScreenshot(uuid) {
-    const screenshotDiv = document.getElementById(`screenshot-content-${uuid}`).querySelector('.flex');
-    screenshotDiv.innerHTML = `
-        <div class="text-center text-gray-500 w-full">
-            <div class="animate-spin inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mb-4"></div>
-            <p>Sending screenshot command...</p>
-        </div>
-    `;
-
-    fetch(`${CONFIG.API.HISTORY}/${uuid}`)
-        .then(r => r.json())
-        .then(data => {
-            const baseLen = (data.history || []).length;
-            const formData = new FormData();
-            formData.append('command', 'screenshot');
-            return fetch(`${CONFIG.API.COMMAND}/${uuid}`, { method: 'POST', body: formData })
-                .then(response => {
-                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                    screenshotDiv.innerHTML = `
-                        <div class="text-center text-gray-500 w-full">
-                            <div class="animate-spin inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mb-4"></div>
-                            <p>Waiting for agent to capture screen...</p>
-                        </div>
-                    `;
-                    screenshotPollHistory(uuid, baseLen, 0);
-                });
-        })
-        .catch(error => {
-            console.error('Error requesting screenshot:', error);
-            screenshotDiv.innerHTML = `
-                <div class="text-center text-red-500 w-full">
-                    <p>Error sending screenshot command</p>
-                    <p class="text-sm mt-2">${error.message}</p>
-                    <div class="mt-4">
-                        <button onclick="refreshScreenshot('${uuid}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition-all duration-200">
-                            Try Again
-                        </button>
-                    </div>
-                </div>
-            `;
-        });
+    startScreenshotPolling(uuid);
 }
 
 function screenshotPollHistory(uuid, baseLen, attempt) {
@@ -1035,4 +996,140 @@ function plKillProcess(uuid, pid, name) {
         .catch(() => {
             if (statusBar) statusBar.textContent = 'Error sending kill command';
         });
+}
+
+// ===== LIVE VIEW (SCREEN STREAMING) =====
+
+const liveViewState = {};
+
+function startLiveView(uuid) {
+    const statusEl = document.getElementById(`liveview-status-${uuid}`);
+    const startBtn = document.getElementById(`liveview-start-${uuid}`);
+    const stopBtn = document.getElementById(`liveview-stop-${uuid}`);
+
+    if (statusEl) statusEl.textContent = 'Sending command...';
+    if (startBtn) startBtn.disabled = true;
+
+    const formData = new FormData();
+    formData.append('command', 'screenwatch on');
+
+    fetch(`${CONFIG.API.COMMAND}/${uuid}`, { method: 'POST', body: formData })
+        .then(r => {
+            if (!r.ok) throw new Error('Failed to send command');
+            if (statusEl) statusEl.textContent = 'Waiting for agent...';
+            if (startBtn) startBtn.classList.add('hidden');
+            if (stopBtn) stopBtn.classList.remove('hidden');
+
+            liveViewState[uuid] = { polling: true };
+            pollLiveViewStatus(uuid, 0);
+        })
+        .catch(err => {
+            if (statusEl) statusEl.textContent = 'Error: ' + err.message;
+            if (startBtn) startBtn.disabled = false;
+        });
+}
+
+function stopLiveView(uuid) {
+    const statusEl = document.getElementById(`liveview-status-${uuid}`);
+    const statusDot = document.getElementById(`liveview-status-dot-${uuid}`);
+    const tabDot = document.getElementById(`liveview-dot-${uuid}`);
+    const imgEl = document.getElementById(`liveview-img-${uuid}`);
+    const startBtn = document.getElementById(`liveview-start-${uuid}`);
+    const stopBtn = document.getElementById(`liveview-stop-${uuid}`);
+    const placeholder = document.getElementById(`liveview-placeholder-${uuid}`);
+
+    if (liveViewState[uuid]) liveViewState[uuid].polling = false;
+
+    if (stopBtn) stopBtn.disabled = true;
+    if (statusEl) statusEl.textContent = 'Stopping...';
+
+    const formData = new FormData();
+    formData.append('command', 'screenwatch off');
+
+    fetch(`${CONFIG.API.COMMAND}/${uuid}`, { method: 'POST', body: formData })
+        .catch(() => {})
+        .finally(() => {
+            fetch(`/api/screen/stop/${uuid}`, { method: 'POST' }).catch(() => {});
+            if (imgEl) { imgEl.src = ''; imgEl.style.display = 'none'; }
+            if (placeholder) placeholder.style.display = '';
+            if (statusEl) statusEl.textContent = 'Idle';
+            if (statusDot) { statusDot.classList.remove('bg-green-500', 'animate-pulse'); statusDot.classList.add('bg-gray-500'); }
+            if (tabDot) { tabDot.classList.remove('bg-green-500', 'animate-pulse'); tabDot.classList.add('bg-gray-500'); }
+            if (startBtn) { startBtn.classList.remove('hidden'); startBtn.disabled = false; }
+            if (stopBtn) { stopBtn.classList.add('hidden'); stopBtn.disabled = false; }
+        });
+}
+
+function pollLiveViewStatus(uuid, attempt) {
+    const state = liveViewState[uuid];
+    if (!state || !state.polling) return;
+
+    if (attempt > 60) {
+        const statusEl = document.getElementById(`liveview-status-${uuid}`);
+        const startBtn = document.getElementById(`liveview-start-${uuid}`);
+        const stopBtn = document.getElementById(`liveview-stop-${uuid}`);
+        if (statusEl) statusEl.textContent = 'Timeout — agent did not connect';
+        if (startBtn) { startBtn.classList.remove('hidden'); startBtn.disabled = false; }
+        if (stopBtn) { stopBtn.classList.add('hidden'); stopBtn.disabled = false; }
+        return;
+    }
+
+    fetch('/api/screen/status')
+        .then(r => r.json())
+        .then(data => {
+            if (!liveViewState[uuid] || !liveViewState[uuid].polling) return;
+            if (data.active && data.active.includes(uuid)) {
+                activateLiveViewStream(uuid);
+            } else {
+                setTimeout(() => pollLiveViewStatus(uuid, attempt + 1), 2000);
+            }
+        })
+        .catch(() => {
+            if (liveViewState[uuid] && liveViewState[uuid].polling) {
+                setTimeout(() => pollLiveViewStatus(uuid, attempt + 1), 2000);
+            }
+        });
+}
+
+function activateLiveViewStream(uuid) {
+    const imgEl = document.getElementById(`liveview-img-${uuid}`);
+    const statusEl = document.getElementById(`liveview-status-${uuid}`);
+    const statusDot = document.getElementById(`liveview-status-dot-${uuid}`);
+    const tabDot = document.getElementById(`liveview-dot-${uuid}`);
+    const placeholder = document.getElementById(`liveview-placeholder-${uuid}`);
+
+    if (placeholder) placeholder.style.display = 'none';
+    if (imgEl) {
+        imgEl.src = `/api/screen/stream/${uuid}`;
+        imgEl.style.display = 'block';
+    }
+    if (statusEl) statusEl.textContent = 'Streaming';
+    if (statusDot) { statusDot.classList.remove('bg-gray-500'); statusDot.classList.add('bg-green-500', 'animate-pulse'); }
+    if (tabDot) { tabDot.classList.remove('bg-gray-500'); tabDot.classList.add('bg-green-500', 'animate-pulse'); }
+}
+
+function handleLiveViewError(uuid) {
+    const state = liveViewState[uuid];
+    if (state && state.polling) {
+        setTimeout(() => {
+            fetch('/api/screen/status')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.active && data.active.includes(uuid)) {
+                        activateLiveViewStream(uuid);
+                    } else {
+                        stopLiveView(uuid);
+                    }
+                })
+                .catch(() => stopLiveView(uuid));
+        }, 2000);
+    }
+}
+
+function cleanupLiveView(uuid) {
+    if (liveViewState[uuid]) {
+        liveViewState[uuid].polling = false;
+        delete liveViewState[uuid];
+    }
+    fetch(`/api/screen/stop/${uuid}`, { method: 'POST' }).catch(() => {});
 }
