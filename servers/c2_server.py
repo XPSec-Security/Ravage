@@ -533,9 +533,9 @@ class C2Server:
 
         try:
             if self.ssl_context:
-                self._server = make_server(host, port, self.app, ssl_context=self.ssl_context)
+                self._server = make_server(host, port, self.app, threaded=True, ssl_context=self.ssl_context)
             else:
-                self._server = make_server(host, port, self.app)
+                self._server = make_server(host, port, self.app, threaded=True)
             if startup_event is not None:
                 startup_event.set()
             self._server.serve_forever()
