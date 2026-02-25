@@ -142,35 +142,6 @@ Profiles define the HTTP traffic pattern for a listener. You can define as many 
 | `youtube` | Mimics YouTube video browsing traffic |
 | `teams` | Mimics Microsoft Teams API traffic |
 
-## Listener Management
-
-Listeners are created and managed at runtime through the **web dashboard** (Listeners tab). No restart is required. Each listener is independently configurable with the following fields:
-
-| Field | Description |
-|-------|-------------|
-| **Name** | Friendly label for the listener |
-| **Bind Host** | IP address the C2 server binds to (typically `0.0.0.0`) |
-| **Bind Port** | Port the C2 server listens on |
-| **Protocol** | `http` or `https` |
-| **Traffic Profile** | Profile ID from `profile.yaml` (controls URIs, headers, user-agent) |
-| **Upstream Host** | Value placed in the HTTP `Host` header by the agent (e.g. `cdn.microsoft.com`) |
-| **External Host** | Public domain or IP the agent connects to (e.g. `c2.example.com` or your redirector IP) |
-
-### Host Field Separation
-
-Ravage cleanly separates three network roles to support redirector and CDN-fronting setups:
-
-```
-Agent  ──────────────────────►  External Host : Bind Port   (TCP connection target)
-                                     │
-                                     ▼
-                              C2 Server listens on Bind Host : Bind Port
-                              HTTP Host header = Upstream Host
-```
-
-- **Bind Host / Bind Port** — where the C2 process listens on the server
-- **External Host** — the IP or domain the agent and dropper use to reach the C2 (redirector, CDN, or direct IP)
-- **Upstream Host** — value injected into the HTTP `Host` header by the agent (used for domain fronting or CDN routing)
 
 ## Command Reference
 
