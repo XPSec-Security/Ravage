@@ -78,13 +78,10 @@ class C2Server:
     # ------------------------------------------------------------------
 
     def _create_ssl_context(self):
-        ssl_config = self.config_loader.get_global_ssl_config()
-
-        if not ssl_config.get('enabled', False):
-            return None
-
         if self.listener_config.get('protocol', 'http') != 'https':
             return None
+
+        ssl_config = self.config_loader.get_global_ssl_config()
 
         cert_file = ssl_config.get('cert_file')
         key_file = ssl_config.get('key_file')
