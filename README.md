@@ -1,12 +1,12 @@
 <div align="center">
-  <img src="templates/assets/logo.png" alt="RAVAGE Logo" width="150"/>
-  <h3>RAVAGE Framework | PowerShell Weaponized</h3>
+  <img src="images/ravage-home.png" alt="RAVAGE Logo" width="500"/>
+  <h3>Ravage Framework | PowerShell Weaponized</h3>
   <p>stay stealth.</p>
 </div>
 
 ## Overview
 
-**RAVAGE** is a Command & Control (C2) framework designed for cybersecurity professionals, red teams, and penetration testers. It provides a secure, modular architecture with dynamic configuration, strong encryption, and advanced evasion techniques to simulate realistic attack scenarios, created by XPSec Security.
+**Ravage Framework** is a Command & Control (C2) framework designed for cybersecurity professionals, red teams, and penetration testers. It provides a secure, modular architecture with dynamic configuration, strong encryption, and advanced evasion techniques to simulate realistic attack scenarios, created by XPSec Security.
 
 ## Key Features
 
@@ -184,4 +184,4 @@ Join our community for support, updates, and collaboration:
 
 ## ⚠️ Disclaimer
 
-Ravage is designed for legal security testing and educational purposes only. Users are responsible for complying with all applicable laws. The developers assume no liability for misuse of this software.
+ Ravage is designed for legal security testing and educational purposes only. Users are responsible for complying with all applicable laws. The developers assume no liability for misuse of this software.
